@@ -179,10 +179,13 @@ local function shouldSkipHeavyAC()
     return false
 end
 
--- BAC-4512 = sunucu "cheating" kick; heavy GC kapali olsa bile telemetry spoof acik kalmali
+-- BAC-8512: hook + yanlis telemetry; BAC-4512: hiz/hatch. Spoof varsayilan KAPALI (ilk Oxide davranisi).
 local function shouldUseBacSpoof()
     local g = oxideEnv()
     if g.OxideDisableBacSpoof == true or g.y0zfqqDisableBacSpoof == true then
+        return false
+    end
+    if g.OxideEnableBacSpoof ~= true and g.y0zfqqEnableBacSpoof ~= true then
         return false
     end
     if g.y0zfqqBacSpoof == false or g.OxideBacSpoof == false then
@@ -206,6 +209,18 @@ local function useRemoteOnlyEggPipeline()
         return false
     end
     return true
+end
+
+-- Executor'dan require(RS.Data.*) PersonalityCatalog vb. kirar -> konsol kirmizi + BAC-8512
+local function shouldRequireGameDataModules()
+    if useRemoteOnlyEggPipeline() and not allowClientEggCalls() then
+        return false
+    end
+    local g = oxideEnv()
+    if g.y0zfqqRequireGameData == true or g.OxideRequireGameData == true then
+        return true
+    end
+    return allowClientEggCalls()
 end
 
 local function shouldRunEvidenceScrub()
@@ -662,9 +677,11 @@ end
 -- GAME NETWORKING & MODULE INTEGRATION
 -- ==============================================================================
 local EggState, PlotState, AreasData, RarityData, AssetsData, EggToolDisplay, AreaEggSlotIdentity
-pcall(function() AreasData = require(RS.Data.Areas) end)
-pcall(function() RarityData = require(RS.Data.Rarity) end)
-pcall(function() AssetsData = require(RS.Data.Assets) end)
+if shouldRequireGameDataModules() then
+    pcall(function() AreasData = require(RS.Data.Areas) end)
+    pcall(function() RarityData = require(RS.Data.Rarity) end)
+    pcall(function() AssetsData = require(RS.Data.Assets) end)
+end
 local SaveModule
 if allowClientEggCalls() then
     pcall(function() EggState = require(RS.Client.EggState) end)
@@ -1204,6 +1221,11 @@ local antiRagdollEnabled        = true
 -- ==============================================================================
 local function GetEggRarityInfo(egg)
     if not egg then return "Common", 100 end
+
+    if type(egg.Rarity) == "string" and egg.Rarity ~= "" then
+        local name = egg.Rarity
+        return name, RARITY_SCORE_MAP[name] or 100
+    end
 
     -- 1. Direct rarity property on egg
     if egg.Rarity then
@@ -2952,7 +2974,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-10518: EggState yok (remote snapshot). Evidence scrub kapali.\nAuto Hatch/Plant/ESP kapali. Kick-Safe + Tween + Area sec.",
+    Content = "BAC-8512: oyun require + BAC hook — ikisi de kapali (ilk surum gibi).\nRemote egg, Kick-Safe + Tween + Area. Hatch/Plant/ESP sonra dene.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",

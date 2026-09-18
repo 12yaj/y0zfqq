@@ -5,7 +5,9 @@ return function(g, playerGui)
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
     g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof ~= false)
+    -- Acik spoof PC'de BAC-8512 uretebiliyor; acmak icin: getgenv().y0zfqqEnableBacSpoof = true
+    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
+    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
     g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)

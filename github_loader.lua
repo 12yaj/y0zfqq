@@ -141,7 +141,8 @@ else
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
     g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof ~= false)
+    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
+    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
     g.OxideCreateWindowOpts = {
