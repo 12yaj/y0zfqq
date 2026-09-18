@@ -8,7 +8,7 @@
 if typeof(getgenv) ~= "function" then getgenv = function() return _G end end
 local url = (getgenv().y0zfqqRawLoader or getgenv().OxideGitHubRaw or "https://raw.githubusercontent.com/12yaj/y0zfqq/main/")
 if not url:match("/$") then url = url .. "/" end
-url = url .. "github_loader.lua?v=11&t=" .. tostring(os.time())
+url = url .. "github_loader.lua?v=12&t=" .. tostring(os.time())
 print("[y0zfqq] loader", url)
 local ok, err = pcall(function()
     loadstring(game:HttpGet(url, true))()

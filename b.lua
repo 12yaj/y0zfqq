@@ -171,6 +171,26 @@ if not bootApplied then
     }
 end
 
+local useLazyIdle = (g.y0zfqqLazyInject ~= false and g.OxideLazyInject ~= false)
+if useLazyIdle then
+    local idleSrc, idlePath = readScript({ "aa_idle.lua", "selams/aa_idle.lua" })
+    if idleSrc then
+        g.y0zfqqRawBase = g.y0zfqqRawBase or g.OxideGitHubRaw
+        local runIdle, idleErr = loadChunk(idleSrc, idlePath or "aa_idle.lua")
+        if not runIdle then
+            showBootstrapError(idleErr)
+            return
+        end
+        local okI, runErr = pcall(runIdle)
+        if not okI then
+            showBootstrapError("aa_idle: " .. tostring(runErr))
+            return
+        end
+        print("[y0zfqq] OK — idle inject. Sag Ctrl ile tam hub.")
+        return
+    end
+end
+
 local libSrc, libPath = readScript(FILE_CANDIDATES.lib)
 if not libSrc then
     showBootstrapError(libPath)

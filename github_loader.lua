@@ -82,7 +82,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=11&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=12&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -108,19 +108,7 @@ end)
 
 print("[y0zfqq HTTP] Raw base: " .. RAW_BASE)
 
-local libSrc, libErr = fetchScript("Libary.lua")
-if not libSrc then
-    libSrc, libErr = fetchScript("Library.lua")
-end
-if not libSrc then
-    bootErr(
-        "Libary.lua indirilemedi.\n"
-        .. tostring(libErr)
-        .. "\n\nRepo public mi? Yol dogru mu?\nOrnek:\n"
-        .. RAW_BASE .. "Libary.lua"
-    )
-    return
-end
+g.y0zfqqRawBase = RAW_BASE
 
 local hubSrc, hubErr = fetchScript("aa.lua")
 if not hubSrc then
@@ -129,14 +117,20 @@ if not hubSrc then
 end
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 print("[y0zfqq HTTP] aa.lua GitHub build:", tostring(hubBuild))
-if not hubBuild or hubBuild < 11 then
+if not hubBuild or hubBuild < 12 then
     bootErr(
         "GitHub'daki aa.lua ESKI (build " .. tostring(hubBuild) .. ").\n"
-        .. "Beklenen: build 11+\n\n"
-        .. "https://github.com/12yaj/y0zfqq  uzerinden aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua, y0zfqq_bootstrap.lua dosyalarini REPLACE et.\n"
+        .. "Beklenen: build 12+\n\n"
+        .. "https://github.com/12yaj/y0zfqq  uzerinden aa_idle.lua, aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua, y0zfqq_bootstrap.lua REPLACE et.\n"
         .. "Sonra cache kirarak tekrar dene:\n"
         .. "loadstring(game:HttpGet('https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?'..os.time()))()"
     )
+    return
+end
+
+local idleSrc, idleErr = fetchScript("aa_idle.lua")
+if not idleSrc then
+    bootErr("aa_idle.lua indirilemedi.\n" .. tostring(idleErr))
     return
 end
 
@@ -171,19 +165,9 @@ if not g.OxideCreateWindowOpts then
     }
 end
 
-local runLib, compileLib = loadstring(libSrc, "Libary.lua@HTTP")
-if not runLib then bootErr("Libary derleme: " .. tostring(compileLib)); return end
-local okL, lib = pcall(runLib)
-if not okL or type(lib) ~= "table" or type(lib.CreateWindow) ~= "function" then
-    bootErr("Libary calismadi: " .. tostring(lib)); return
-end
-_G.OxideLib = lib
-_G.y0zfqqLib = lib
+local runIdle, compileIdle = loadstring(idleSrc, "aa_idle.lua@HTTP")
+if not runIdle then bootErr("aa_idle derleme: " .. tostring(compileIdle)); return end
+local okI, runErr = pcall(runIdle)
+if not okI then bootErr("aa_idle calismadi:\n" .. tostring(runErr)); return end
 
-local hubCode = "local Library = _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
-local runHub, compileHub = loadstring(hubCode, "aa.lua@HTTP")
-if not runHub then bootErr("aa derleme: " .. tostring(compileHub)); return end
-local okH, runErr = pcall(runHub)
-if not okH then bootErr("aa calismadi:\n" .. tostring(runErr)); return end
-
-print("[y0zfqq HTTP] Yuklendi. GUI yok — 20sn bekle, sonra Sag Ctrl")
+print("[y0zfqq HTTP] Idle inject OK — Libary/aa yuklenmedi. 30sn bekle, Sag Ctrl")
