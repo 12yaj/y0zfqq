@@ -87,15 +87,19 @@ local function GetCamera()
     return Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
 end
 
--- Instant ProximityPrompt Hold Eliminator (Ensures 0s hold on egg pickup)
-pcall(function()
-    local pps = game:GetService("ProximityPromptService")
-    track(pps.PromptButtonHoldBegan:Connect(function(prompt, player)
-        if player == LP and tostring(prompt) == "CarryAreaEgg" then
-            prompt.HoldDuration = 0
-        end
-    end))
-end)
+local carryPromptBoostConn = nil
+local function InstallCarryPromptBoost()
+    if carryPromptBoostConn then return end
+    pcall(function()
+        local pps = game:GetService("ProximityPromptService")
+        carryPromptBoostConn = track(pps.PromptButtonHoldBegan:Connect(function(prompt, player)
+            if player ~= LP then return end
+            if prompt.Name == "CarryAreaEgg" or prompt:GetAttribute("PromptId") == "CarryAreaEgg" then
+                prompt.HoldDuration = 0
+            end
+        end))
+    end)
+end
 
 -- Anti-Robux Purchase Prompt Shield: immediately dismisses accidental Robux purchase prompts
 pcall(function()
@@ -806,7 +810,13 @@ local function resolveTravelSpeed(requested, inSafeZone)
     end
     return math.clamp(requested, 50, 750)
 end
-local avoidTrapsEnabled       = true
+-- BAC-6519: yuklemede trap/RigSync mudahalesi sunucu kick atar — varsayilan kapali (ilk surum)
+local function autoGuardOnLoad()
+    local g = oxideEnv()
+    return g.OxideAutoGuard == true or g.y0zfqqAutoGuard == true
+end
+
+local avoidTrapsEnabled       = false
 -- Boss Arena (Abyss Overlord) state + helpers live in ONE table so the main chunk
 -- stays under Luau's 200-local ceiling.
 local Boss = { autoJoin = false, autoMastery = false, claimed = {}, arenaReady = false }
@@ -1210,11 +1220,11 @@ local function getSellRarityFilter(selected)
     return selected
 end
 
-local noKnockbackEnabled        = true
+local noKnockbackEnabled        = false
 local batAuraEnabled            = false
 local batAuraRadius             = 20
 local batAuraDelay              = 0.2
-local antiRagdollEnabled        = true
+local antiRagdollEnabled        = false
 
 -- ==============================================================================
 -- EGG STEALING, PLANTING & HATCHING CORE LOGIC (Strict Rarity Matching)
@@ -2366,9 +2376,13 @@ local function SetNoKnockback(enabled)
     end
 end
 
--- Auto-enable defensive features by default (user request)
-pcall(function() if avoidTrapsEnabled then NeutralizeTraps() end end)
-pcall(function() if noKnockbackEnabled then SetNoKnockback(true) end end)
+if autoGuardOnLoad() then
+    avoidTrapsEnabled = true
+    noKnockbackEnabled = true
+    antiRagdollEnabled = true
+    pcall(NeutralizeTraps)
+    pcall(function() SetNoKnockback(true) end)
+end
 
 local function SellSelectedPets()
     local re = GetNetRemote("RE/PetSatchel/SellPet")
@@ -2974,13 +2988,14 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-8512: oyun require + BAC hook — ikisi de kapali (ilk surum gibi).\nRemote egg, Kick-Safe + Tween + Area. Hatch/Plant/ESP sonra dene.",
+    Content = "BAC-6519: Anti-Trap / No-KB yuklemede KAPALI (getconnections kick).\nKick-Safe + Tween Glide + Area. Auto Steal acinca prompt boost gelir.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
     Callback = safeCallback(function(v)
         autoStealEnabled = v
         if v then
+            InstallCarryPromptBoost()
             EnsureSavedReturnPosition()
             local waitSec = kickSafeMode and 6 or 3
             stealGraceUntil = os.clock() + waitSec
@@ -3322,7 +3337,7 @@ BatSub:AddButton({
 
 -- SubTab: Defense & Guards
 GuardSub:AddToggle({
-    Name = "Anti-Trap (Full Immunity / Destroy Hitboxes)", Default = true, Flag = "avoid_traps",
+    Name = "Anti-Trap (Full Immunity / Destroy Hitboxes)", Default = false, Flag = "avoid_traps",
     Callback = safeCallback(function(v)
         avoidTrapsEnabled = v
         if v then pcall(NeutralizeTraps) end
@@ -3331,7 +3346,7 @@ GuardSub:AddToggle({
 })
 
 GuardSub:AddToggle({
-    Name = "No Knockback / Ragdoll Immunity", Default = true, Flag = "no_knockback",
+    Name = "No Knockback / Ragdoll Immunity", Default = false, Flag = "no_knockback",
     Callback = safeCallback(function(v)
         SetNoKnockback(v)
         Notify("Knockback", v and "Ragdoll Immunity Active" or "Knockback Enabled", v and "Success" or "Error")
@@ -3339,7 +3354,7 @@ GuardSub:AddToggle({
 })
 
 GuardSub:AddToggle({
-    Name = "Anti-Ragdoll (Quick Standup)", Default = true, Flag = "anti_ragdoll",
+    Name = "Anti-Ragdoll (Quick Standup)", Default = false, Flag = "anti_ragdoll",
     Callback = function(v) antiRagdollEnabled = v end
 })
 

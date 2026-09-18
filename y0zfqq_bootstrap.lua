@@ -14,6 +14,8 @@ return function(g, playerGui)
     g.OxideRemoteOnly = (g.OxideRemoteOnly ~= false)
     g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
     g.OxideDisableEvidenceScrub = true
+    g.OxideAutoGuard = (g.OxideAutoGuard == true)
+    g.y0zfqqAutoGuard = (g.y0zfqqAutoGuard == true)
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
         Parent = playerGui,
