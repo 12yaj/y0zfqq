@@ -19,10 +19,10 @@ do
     local prev = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 3 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 4 }
 _G.OxideStealAnEgg = HUB
 _G.y0zfqqStealAnEgg = HUB
-print("[y0zfqq] aa build", HUB.build, "(200-local fix — eski build kick/derleme verir)")
+print("[y0zfqq] aa build", HUB.build, "(3517=BAC gecikmeli | build<4 eski dosya)")
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -183,19 +183,23 @@ local function shouldSkipHeavyAC()
     return false
 end
 
--- BAC-8512: hook + yanlis telemetry; BAC-4512: hiz/hatch. Spoof varsayilan KAPALI (ilk Oxide davranisi).
+-- BAC-3517: spoof kapali idle kick (telemetri). BAC-8512: erken hook — gecikmeli kurulum.
 local function shouldUseBacSpoof()
     local g = oxideEnv()
     if g.OxideDisableBacSpoof == true or g.y0zfqqDisableBacSpoof == true then
         return false
     end
-    if g.OxideEnableBacSpoof ~= true and g.y0zfqqEnableBacSpoof ~= true then
-        return false
-    end
     if g.y0zfqqBacSpoof == false or g.OxideBacSpoof == false then
         return false
     end
-    return true
+    if g.OxideEnableBacSpoof == true or g.y0zfqqEnableBacSpoof == true then
+        return true
+    end
+    -- Telefon/Oxide parity: heartbeat spoof gerekli (3517); GC bypass yine kapali
+    if g.OxidePhoneParity ~= false then
+        return true
+    end
+    return false
 end
 
 -- BAC-5516 / PlacedEggRenderer: client EggState.* cagrilari executor context'te patlar
@@ -430,7 +434,7 @@ local function scanRemotes()
     end
 end
 
-scanRemotes()
+local bacHookInstalled = false
 
 local function parseCounter(v)
     if type(v) ~= "string" then return end
@@ -538,7 +542,14 @@ end
 
 local HookFn = hookfunction or replaceclosure or hookfunc or detour_function
 
-if anyRemote and HookFn and shouldUseBacSpoof() then
+local function installBacTelemetryHook()
+    if bacHookInstalled or HUB.dead or not HookFn or not shouldUseBacSpoof() then
+        return false
+    end
+    scanRemotes()
+    if not anyRemote then
+        return false
+    end
     local oldFire
     oldFire = HookFn(anyRemote.FireServer, function(self, ...)
         local args = table.pack(...)
@@ -571,20 +582,41 @@ if anyRemote and HookFn and shouldUseBacSpoof() then
 
         return oldFire(self, unpack(args, 1, args.n))
     end)
+    bacHookInstalled = true
+    HUB.bacSpoofActive = true
+    return true
+end
+
+if shouldUseBacSpoof() and HookFn then
+    local delaySec = 14
+    pcall(function()
+        local g = oxideEnv()
+        delaySec = tonumber(g.y0zfqqBacSpoofDelay) or tonumber(g.OxideBacSpoofDelay) or delaySec
+    end)
+    task.spawn(function()
+        task.wait(math.clamp(delaySec, 8, 45))
+        if HUB.dead then return end
+        local ok = installBacTelemetryHook()
+        if ok then
+            pcall(function() Notify("y0zfqq", "BAC telemetry hazir (gecikmeli)", "Info", 3) end)
+        end
+    end)
 end
 
 task.spawn(function()
     while not HUB.dead do
         task.wait(10)
-        local alive = false
-        for r in pairs(remoteSet) do
-            if r:IsDescendantOf(game) then alive = true; break end
-        end
-        if not alive then
-            table.clear(remoteSet)
-            anyRemote = nil
-            model = nil
-            scanRemotes()
+        if bacHookInstalled then
+            local alive = false
+            for r in pairs(remoteSet) do
+                if r:IsDescendantOf(game) then alive = true; break end
+            end
+            if not alive then
+                table.clear(remoteSet)
+                anyRemote = nil
+                model = nil
+                scanRemotes()
+            end
         end
     end
 end)
@@ -2985,7 +3017,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-6519: Anti-Trap / No-KB yuklemede KAPALI (getconnections kick).\nKick-Safe + Tween Glide + Area. Auto Steal acinca prompt boost gelir.",
+    Content = "BAC-3517: 14sn bekle (BAC telemetry). Trap/KB kapali.\nKick-Safe + Tween Glide + Area. Auto Steal ~6sn grace.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3623,10 +3655,11 @@ end
 
 task.defer(function()
     local hookOk = (hookfunction or replaceclosure or hookfunc) ~= nil
-    local bacOn = shouldUseBacSpoof() and hookOk
+    local bacPlan = shouldUseBacSpoof() and hookOk
     local remoteEggs = GetNetRemote("RF/EggWorld/AskFieldEggSnapshot") ~= nil
-    local msg = "Remote egg: " .. (remoteEggs and "OK" or "YOK")
-        .. " | BAC: " .. (bacOn and "spoof" or "kapali")
+    local msg = "build " .. tostring(HUB.build)
+        .. " | Remote egg: " .. (remoteEggs and "OK" or "YOK")
+        .. " | BAC: " .. (bacPlan and "gecikmeli" or "kapali")
         .. " | EggState: " .. (allowClientEggCalls() and "acik" or "kapali")
-    Notify("y0zfqq", msg, (remoteEggs and bacOn) and "Success" or "Warning", 5)
+    Notify("y0zfqq", msg, remoteEggs and "Success" or "Warning", 5)
 end)
