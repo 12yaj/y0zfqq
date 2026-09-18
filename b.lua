@@ -159,9 +159,9 @@ if not bootApplied then
     g.OxideForcePC = (g.OxideForcePC ~= false)
     g.OxideUsePlayerGui = true
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-    g.OxideSkipACNeutralizer = false
-    g.OxideEnableBacSpoof = true
-    g.y0zfqqEnableBacSpoof = true
+    g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
+    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
+    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
     g.OxideKickSafe = (g.OxideKickSafe ~= false)

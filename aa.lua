@@ -44,7 +44,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 14 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 15 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -623,8 +623,16 @@ local function installBacTelemetryHook()
 end
 
 local hubRuntimeStarted = false
+local function shouldStartHubRuntimeLayers()
+    local g = oxideEnv()
+    if g.y0zfqqEnableHubLayers == true or g.OxideEnableHubLayers == true then
+        return true
+    end
+    return false
+end
+
 local function startHubRuntimeLayers()
-    if hubRuntimeStarted or HUB.dead then return end
+    if hubRuntimeStarted or HUB.dead or not shouldStartHubRuntimeLayers() then return end
     hubRuntimeStarted = true
 
     if not shouldSkipHeavyAC() then
@@ -887,7 +895,11 @@ local function InitHubFeatures()
     end
     if HUB.dead then return end
 
-    startHubRuntimeLayers()
+    if shouldStartHubRuntimeLayers() then
+        startHubRuntimeLayers()
+    else
+        print("[y0zfqq] hub katmanlari kapali (BAC-9513) — spoof/GC/scrub yok")
+    end
 
     if not Window then
         Window = Library:CreateWindow(windowOpts)

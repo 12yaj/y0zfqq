@@ -4,7 +4,7 @@ return function(g, playerGui)
     g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad == true)
     g.OxideDeferLoad = (g.OxideDeferLoad == true)
     g.y0zfqqJoinGrace = (g.y0zfqqJoinGrace == true)
-    g.OxideJoinGrace = (g.OxideJoinGrace == true)
+    g.OxideJoinGrace = (g.y0zfqqJoinGrace == true)
     g.y0zfqqJoinGraceSec = g.y0zfqqJoinGraceSec or 15
     g.OxideJoinGraceSec = g.OxideJoinGraceSec or g.y0zfqqJoinGraceSec
     g.y0zfqqStealthGui = (g.y0zfqqStealthGui ~= false)
@@ -12,30 +12,33 @@ return function(g, playerGui)
     g.OxideUsePlayerGui = true
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-    -- FIX BAC-25110 / BAC-3511: AC Neutralizer ACIK olmali
-    g.OxideSkipACNeutralizer = false
-    -- FIX BAC-3517 / BAC-2513: BacSpoof PC icin de aktif
-    g.y0zfqqDisableBacSpoof = false
-    g.OxideDisableBacSpoof  = false
-    g.y0zfqqEnableBacSpoof  = true
-    g.OxideEnableBacSpoof   = true
-    g.OxideBacSpoofDelay    = g.OxideBacSpoofDelay  or 12
-    g.y0zfqqBacSpoofDelay   = g.y0zfqqBacSpoofDelay or g.OxideBacSpoofDelay
+    -- PC GitHub: GC/filtergc + hook = 2513/9513. Kapali (PhoneParity ile birlikte aa.lua da atlar)
+    g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
+    -- BAC hook varsayilan KAPALI — acarsan 9513/2513 riski (sadece idle kick icin opt-in)
+    g.y0zfqqDisableBacSpoof = (g.y0zfqqDisableBacSpoof ~= false)
+    g.OxideDisableBacSpoof = (g.OxideDisableBacSpoof ~= false)
+    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
+    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
+    g.OxideBacSpoofDelay = g.OxideBacSpoofDelay or 18
+    g.y0zfqqBacSpoofDelay = g.y0zfqqBacSpoofDelay or g.OxideBacSpoofDelay
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
-    g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or Tween Glide
+    g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
     g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)
-    g.OxideRemoteOnly  = (g.OxideRemoteOnly  ~= false)
+    g.OxideRemoteOnly = (g.OxideRemoteOnly ~= false)
     g.y0zfqqAllowClientEggApi = (g.y0zfqqAllowClientEggApi == true)
-    g.OxideAllowClientEggApi  = (g.OxideAllowClientEggApi  == true)
+    g.OxideAllowClientEggApi = (g.OxideAllowClientEggApi == true)
     if g.y0zfqqMenuKey == nil and g.OxideMenuKey == nil then
         g.y0zfqqMenuKey = Enum.KeyCode.Insert
     end
-    -- FIX BAC-5516: Evidence scrubber ACIK olmali (false = calistir)
-    g.y0zfqqDisableEvidenceScrub = false
-    g.OxideDisableEvidenceScrub  = false
-    g.OxideAutoGuard  = (g.OxideAutoGuard  == true)
+    -- Evidence scrub: remote-only modda zaten calismaz; acik bayrak GC taramasi = ek kick
+    g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
+    g.OxideDisableEvidenceScrub = (g.OxideDisableEvidenceScrub ~= false)
+    -- Hub acilinca hook/GC katmanlari varsayilan kapali (Insert sonrasi 9513)
+    g.y0zfqqEnableHubLayers = (g.y0zfqqEnableHubLayers == true)
+    g.OxideEnableHubLayers = (g.OxideEnableHubLayers == true)
+    g.OxideAutoGuard = (g.OxideAutoGuard == true)
     g.y0zfqqAutoGuard = (g.y0zfqqAutoGuard == true)
-    g.OxideAutoLoadConfig  = (g.OxideAutoLoadConfig  == true)
+    g.OxideAutoLoadConfig = (g.OxideAutoLoadConfig == true)
     g.y0zfqqAutoLoadConfig = (g.y0zfqqAutoLoadConfig == true)
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
@@ -45,12 +48,12 @@ return function(g, playerGui)
         DisplayOrder = 100,
         SkipTagSystem = true,
         AutoLoad = false,
-        ConfigName = y0zfqq_steal,
+        ConfigName = "y0zfqq_steal",
     }
     if playerGui then
         g.OxideCreateWindowOpts.Parent = g.OxideCreateWindowOpts.Parent or playerGui
     end
     g.OxideCreateWindowOpts.SkipTagSystem = true
     g.OxideCreateWindowOpts.AutoLoad = false
-    g.OxideCreateWindowOpts.ConfigName = y0zfqq_steal
+    g.OxideCreateWindowOpts.ConfigName = "y0zfqq_steal"
 end

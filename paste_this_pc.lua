@@ -158,9 +158,9 @@ end
 g.OxideForcePC = true
 g.OxideUsePlayerGui = true
 g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-g.OxideSkipACNeutralizer = false
-g.OxideEnableBacSpoof = true
-g.y0zfqqEnableBacSpoof = true
+g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
+g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
+g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
 g.OxideDisableTags = (g.OxideDisableTags ~= false)
 g.OxideKickSafe = (g.OxideKickSafe ~= false)
 g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"

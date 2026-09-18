@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-local IDLE_BUILD = 14
+local IDLE_BUILD = 15
 
 local function env()
     if typeof(getgenv) == "function" then return getgenv() end
@@ -176,8 +176,8 @@ local function bootFullHub()
     end
 
     local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-    if not hubBuild or hubBuild < 14 then
-        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 14+ yukle.")
+    if not hubBuild or hubBuild < 15 then
+        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 15+ yukle.")
         loading = false
         booted = false
         return
@@ -185,8 +185,16 @@ local function bootFullHub()
 
     local g = env()
     g.y0zfqqAllowClientEggApi = false
-    g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)
-    g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
+    g.y0zfqqRemoteOnly = true
+    g.y0zfqqDisableEvidenceScrub = true
+    g.OxideDisableEvidenceScrub = true
+    g.OxideSkipACNeutralizer = true
+    g.y0zfqqDisableBacSpoof = true
+    g.OxideDisableBacSpoof = true
+    g.y0zfqqEnableBacSpoof = false
+    g.OxideEnableBacSpoof = false
+    g.y0zfqqEnableHubLayers = false
+    g.OxideEnableHubLayers = false
     g.y0zfqqOpenMenuNow = false
     g.y0zfqqOpenMenuAfterLoad = true
     g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 20
