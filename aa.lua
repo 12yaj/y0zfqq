@@ -40,18 +40,18 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 9 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 10 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
 local windowOpts = {
     Name = "y0zfqq | Steal an Egg",
-    LoadingAnimation = true,
+    LoadingAnimation = false,
     LoadingText = "y0zfqq",
     LoadingSubtitle = "HUB",
     LoadingFooter = "y0zfqq HUB",
     BrandSubtitle = "y0zfqq · Steal an Egg",
-    LoadingDuration = 1.2,
+    LoadingDuration = 0.15,
     Mobile = false,
     GuiName = "PlayerMenuUI",
     DisplayOrder = 100,
@@ -2387,16 +2387,6 @@ Boss._hazardRemotes = {}
 Boss.hazardHook = false
 Boss.hazardHookTried = false
 
-do
-    local hazard = GetNetRemote("RE/BossEvent/HazardHit")
-    local blackHole = GetNetRemote("RE/BossEvent/BlackHoleHit")
-    for _, remote in ipairs({ hazard, blackHole }) do
-        if type(remote) == "userdata" and remote:IsA("RemoteEvent") then
-            Boss._hazardRemotes[remote] = true
-        end
-    end
-end
-
 function Boss.InstallHazardHook()
     if Boss.hazardHook then return true end
     if Boss.hazardHookTried then return false end
@@ -2412,8 +2402,14 @@ function Boss.InstallHazardHook()
         return false
     end
 
-    if not HookFn then return false end
     local hazard = GetNetRemote("RE/BossEvent/HazardHit")
+    local blackHole = GetNetRemote("RE/BossEvent/BlackHoleHit")
+    for _, remote in ipairs({ hazard, blackHole }) do
+        if type(remote) == "userdata" and remote:IsA("RemoteEvent") then
+            Boss._hazardRemotes[remote] = true
+        end
+    end
+    if not HookFn then return false end
     if type(hazard) ~= "userdata" or not hazard:IsA("RemoteEvent") then return false end
 
     local oldFire = hazard.FireServer
@@ -2559,118 +2555,127 @@ local function ClaimAllAvailableRewards()
     pcall(Boss.ClaimMastery)
 end
 
--- ==============================================================================
--- WORKER LOOPS
--- ==============================================================================
--- 1. Auto Steal Eggs Loop
-task.spawn(function()
-    while not HUB.dead do
-        if autoStealEnabled and os.clock() >= stealGraceUntil then
-            pcall(StealBestEggOnce)
-        end
-        task.wait(stealDelay)
-    end
-end)
+-- WORKERS: inject'te spawn YOK. Ilk ilgili toggle acilinca baslar (BAC-95110).
+local stealWorkerOn, hatchWorkerOn, baseWorkerOn, bossWorkerOn, batWorkerOn, trapWorkerOn = false, false, false, false, false, false
 
--- 2. Auto Hatch & Auto Plant Loop
-task.spawn(function()
-    while not HUB.dead do
-        if autoHatchEnabled then
-            pcall(HatchAllReadyEggs)
-        end
-        if autoPlantEnabled then
-            pcall(PlantAllCarriedEggsInPen)
-        end
-        task.wait(hatchCheckDelay)
-    end
-end)
-
--- 3. Base, Homestead, Sales & Event Upgrades Loop
-task.spawn(function()
-    while not HUB.dead do
-        if autoUpgradeBase then pcall(UpgradeHomesteadBase) end
-        if autoUpgradeTreadmill then pcall(UpgradeTreadmillTier) end
-        if autoEquipBestPets then pcall(EquipBestPets) end
-        if autoClaimRewards then pcall(ClaimAllAvailableRewards) end
-        if Boss.autoMastery then pcall(Boss.ClaimMastery) end
-        if autoSellPets then pcall(SellSelectedPets) end
-        if autoSellEggs then pcall(SellSelectedEggs) end
-        task.wait(2.5)
-    end
-end)
-
--- 3b. Boss Arena worker: joins when the window opens, then fights EVERY FRAME
---     (one glide step per frame while far away, swings on a timer in range) so
---     the movement is continuous and the Overlord still goes down inside the
---     330 s window.
-task.spawn(function()
-    while not HUB.dead do
-        if Boss.autoJoin or Boss.autoFight then
-            if Boss.IsInArena() then
-                if Boss.autoFight then pcall(Boss.Fight) end
-                RunService.Heartbeat:Wait()
-            else
-                local ok, open = pcall(Boss.IsOpen)
-                Boss.arenaReady = (ok and open == true)
-                if Boss.arenaReady then pcall(Boss.Join) end
-                task.wait(2)
+local function ensureStealWorker()
+    if stealWorkerOn then return end
+    stealWorkerOn = true
+    task.spawn(function()
+        while not HUB.dead do
+            if autoStealEnabled and os.clock() >= stealGraceUntil then
+                pcall(StealBestEggOnce)
             end
-        else
-            task.wait(1)
+            task.wait(stealDelay)
         end
-    end
-end)
+    end)
+end
 
--- 4. Bat / Slap Aura Loop
-task.spawn(function()
-    local batRe = GetNetRemote("RE/BatSwing/Trigger")
-    while not HUB.dead do
-        if batAuraEnabled and batRe then
-            local hrp = findHRP()
-            if hrp then
-                local foundNearby = false
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if p ~= LP and p.Character then
-                        local oHrp = p.Character:FindFirstChild("HumanoidRootPart")
-                        if oHrp and (oHrp.Position - hrp.Position).Magnitude <= batAuraRadius then
-                            foundNearby = true
-                            break
+local function ensureHatchWorker()
+    if hatchWorkerOn then return end
+    hatchWorkerOn = true
+    task.spawn(function()
+        while not HUB.dead do
+            if autoHatchEnabled then pcall(HatchAllReadyEggs) end
+            if autoPlantEnabled then pcall(PlantAllCarriedEggsInPen) end
+            task.wait(hatchCheckDelay)
+        end
+    end)
+end
+
+local function ensureBaseWorker()
+    if baseWorkerOn then return end
+    baseWorkerOn = true
+    task.spawn(function()
+        while not HUB.dead do
+            if autoUpgradeBase then pcall(UpgradeHomesteadBase) end
+            if autoUpgradeTreadmill then pcall(UpgradeTreadmillTier) end
+            if autoEquipBestPets then pcall(EquipBestPets) end
+            if autoClaimRewards then pcall(ClaimAllAvailableRewards) end
+            if Boss.autoMastery then pcall(Boss.ClaimMastery) end
+            if autoSellPets then pcall(SellSelectedPets) end
+            if autoSellEggs then pcall(SellSelectedEggs) end
+            if autoBuyTrails then pcall(BuyAffordableTrails) end
+            task.wait(2.5)
+        end
+    end)
+end
+
+local function ensureBossWorker()
+    if bossWorkerOn then return end
+    bossWorkerOn = true
+    task.spawn(function()
+        while not HUB.dead do
+            if Boss.autoJoin or Boss.autoFight then
+                if Boss.IsInArena() then
+                    if Boss.autoFight then pcall(Boss.Fight) end
+                    RunService.Heartbeat:Wait()
+                else
+                    local ok, open = pcall(Boss.IsOpen)
+                    Boss.arenaReady = (ok and open == true)
+                    if Boss.arenaReady then pcall(Boss.Join) end
+                    task.wait(2)
+                end
+            else
+                task.wait(1)
+            end
+        end
+    end)
+end
+
+local function ensureBatWorker()
+    if batWorkerOn then return end
+    batWorkerOn = true
+    task.spawn(function()
+        local batRe = GetNetRemote("RE/BatSwing/Trigger")
+        while not HUB.dead do
+            if batAuraEnabled and batRe then
+                local hrp = findHRP()
+                if hrp then
+                    local foundNearby = false
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= LP and p.Character then
+                            local oHrp = p.Character:FindFirstChild("HumanoidRootPart")
+                            if oHrp and (oHrp.Position - hrp.Position).Magnitude <= batAuraRadius then
+                                foundNearby = true
+                                break
+                            end
+                        end
+                    end
+                    if foundNearby then
+                        pcall(function() batRe:FireServer() end)
+                    end
+                end
+            end
+            task.wait(batAuraDelay)
+        end
+    end)
+end
+
+local function ensureTrapWorker()
+    if trapWorkerOn then return end
+    trapWorkerOn = true
+    task.spawn(function()
+        local debris = Workspace:FindFirstChild("__DEBRIS")
+        if debris then
+            track(debris.ChildAdded:Connect(function(child)
+                if avoidTrapsEnabled and child.Name == "PlayerTrap" then
+                    task.wait(0.05)
+                    if child:GetAttribute("Owner") ~= LP.Name then
+                        if child:IsA("BasePart") then child.CanTouch = false end
+                        for _, c in ipairs(child:GetChildren()) do
+                            if c:IsA("BasePart") then c.CanTouch = false end
                         end
                     end
                 end
-                if foundNearby then
-                    pcall(function() batRe:FireServer() end)
-                end
-            end
+            end))
         end
-        task.wait(batAuraDelay)
-    end
-end)
-
--- 5. Trap Neutralizer Loop
-task.spawn(function()
-    local debris = Workspace:FindFirstChild("__DEBRIS")
-    if debris then
-        track(debris.ChildAdded:Connect(function(child)
-            if avoidTrapsEnabled and child.Name == "PlayerTrap" then
-                task.wait(0.05)
-                if child:GetAttribute("Owner") ~= LP.Name then
-                    if child:IsA("BasePart") then child.CanTouch = false end
-                    for _, c in ipairs(child:GetChildren()) do
-                        if c:IsA("BasePart") then c.CanTouch = false end
-                    end
-                end
-            end
-        end))
-    end
-
-    while not HUB.dead do
-        if avoidTrapsEnabled then
-            pcall(NeutralizeTraps)
+        while not HUB.dead do
+            if avoidTrapsEnabled then pcall(NeutralizeTraps) end
+            task.wait(1.5)
         end
-        task.wait(1.5)
-    end
-end)
+    end)
+end
 
 -- ==============================================================================
 -- VISUALS & ESP
@@ -3114,7 +3119,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "build 9: inject'te HICBIR sey acilmaz (eski config yok sayilir).\nAuto Steal / Hatch / ESP / Fly sen acana kadar KAPALI.",
+    Content = "build 10: inject'te thread/remote/trap YOK. Toggle acinca baslar.\nKick-Safe + Area. Config autoload kapali.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3122,6 +3127,7 @@ StealSub:AddToggle({
         autoStealEnabled = v
         if v then
             InstallCarryPromptBoost()
+            ensureStealWorker()
             EnsureSavedReturnPosition()
             local waitSec = kickSafeMode and 6 or 3
             stealGraceUntil = os.clock() + waitSec
@@ -3193,14 +3199,14 @@ HatchSub:AddToggle({
     Name = "Auto Hatch Ready Eggs", Default = false, Flag = "hatch_auto",
     Callback = safeCallback(function(v)
         autoHatchEnabled = v
-        Notify("Auto Hatch", v and "Enabled" or "Disabled", v and "Success" or "Error")
+        if v then ensureHatchWorker() end
     end)
 })
 HatchSub:AddToggle({
     Name = "Auto Place Egg (Base Pen)", Default = false, Flag = "plant_auto",
     Callback = function(v)
         autoPlantEnabled = v
-        Notify("Auto Place Egg", v and "Enabled" or "Disabled", v and "Success" or "Error")
+        if v then ensureHatchWorker() end
     end
 })
 HatchSub:AddSlider({
@@ -3261,15 +3267,24 @@ local RewardsSub  = BaseTab:AddSubTab("Claim Rewards")
 -- SubTab: Homestead & Treadmill
 UpgradesSub:AddToggle({
     Name = "Auto Upgrade Base / Plot", Default = false, Flag = "up_base_auto",
-    Callback = function(v) autoUpgradeBase = v end
+    Callback = function(v)
+        autoUpgradeBase = v
+        if v then ensureBaseWorker() end
+    end
 })
 UpgradesSub:AddToggle({
     Name = "Auto Upgrade Treadmill Tier", Default = false, Flag = "up_tread_auto",
-    Callback = function(v) autoUpgradeTreadmill = v end
+    Callback = function(v)
+        autoUpgradeTreadmill = v
+        if v then ensureBaseWorker() end
+    end
 })
 UpgradesSub:AddToggle({
     Name = "Auto Buy Speed Trails", Default = false, Flag = "auto_buy_trails",
-    Callback = function(v) autoBuyTrails = v end
+    Callback = function(v)
+        autoBuyTrails = v
+        if v then ensureBaseWorker() end
+    end
 })
 UpgradesSub:AddButton({
     Name = "Upgrade Base Now", Primary = true,
@@ -3289,7 +3304,10 @@ UpgradesSub:AddButton({
 -- SubTab: Pets & Satchel
 PetsSub:AddToggle({
     Name = "Auto Equip Best Pets", Default = false, Flag = "equip_best_pets",
-    Callback = function(v) autoEquipBestPets = v end
+    Callback = function(v)
+        autoEquipBestPets = v
+        if v then ensureBaseWorker() end
+    end
 })
 PetsSub:AddButton({
     Name = "Equip Best Pets Now", Primary = true,
@@ -3302,7 +3320,10 @@ PetsSub:AddButton({
 -- SubTab: Auto Sell
 SalesSub:AddToggle({
     Name = "Auto Sell Low-Tier Pets", Default = false, Flag = "auto_sell_pets",
-    Callback = function(v) autoSellPets = v end
+    Callback = function(v)
+        autoSellPets = v
+        if v then ensureBaseWorker() end
+    end
 })
 SalesSub:AddMultiDropdown({
     Name = "Filter Pet Sell Rarities", Options = RARITY_NAMES, Default = {}, Flag = "sell_pet_rarities",
@@ -3310,7 +3331,10 @@ SalesSub:AddMultiDropdown({
 })
 SalesSub:AddToggle({
     Name = "Auto Sell Low-Tier Eggs", Default = false, Flag = "auto_sell_eggs",
-    Callback = function(v) autoSellEggs = v end
+    Callback = function(v)
+        autoSellEggs = v
+        if v then ensureBaseWorker() end
+    end
 })
 SalesSub:AddMultiDropdown({
     Name = "Filter Egg Sell Rarities", Options = RARITY_NAMES, Default = {}, Flag = "sell_egg_rarities",
@@ -3336,11 +3360,11 @@ EventsSub:AddToggle({
     Name = "FULL AUTO Boss Fight (Join + Fight + Dodge + Claim)", Default = false, Flag = "auto_fight_boss",
     Callback = safeCallback(function(v)
         Boss.autoFight = v
-        -- Full auto also drives the join/claim toggles, but never turns them off,
-        -- so the granular controls below stay independent.
         if v then
             Boss.autoJoin = true
             Boss.autoMastery = true
+            ensureBossWorker()
+            ensureBaseWorker()
             if Boss.hazardImmune then pcall(Boss.InstallHazardHook) end
             Notify("Boss Auto", "Fully automatic: joins, fights the Overlord and claims rewards", "Success")
         else
@@ -3372,6 +3396,7 @@ EventsSub:AddToggle({
     Name = "Auto Join Boss Arena (Every 30 min)", Default = false, Flag = "auto_join_boss",
     Callback = safeCallback(function(v)
         Boss.autoJoin = v
+        if v then ensureBossWorker() end
         Notify("Boss Arena", v and "Will join whenever the arena opens" or "Disabled", v and "Success" or "Error")
     end)
 })
@@ -3379,6 +3404,7 @@ EventsSub:AddToggle({
     Name = "Auto Claim Boss Mastery Rewards", Default = false, Flag = "auto_boss_mastery",
     Callback = safeCallback(function(v)
         Boss.autoMastery = v
+        if v then ensureBaseWorker() end
         Notify("Boss Mastery", v and "Enabled" or "Disabled", v and "Success" or "Error")
     end)
 })
@@ -3423,7 +3449,10 @@ EventsSub:AddButton({
 -- SubTab: Claim Rewards
 RewardsSub:AddToggle({
     Name = "Auto Claim Away Earnings & Codex", Default = false, Flag = "claim_auto_rewards",
-    Callback = function(v) autoClaimRewards = v end
+    Callback = function(v)
+        autoClaimRewards = v
+        if v then ensureBaseWorker() end
+    end
 })
 RewardsSub:AddButton({
     Name = "Claim Away Earnings & Codex Now", Primary = true,
@@ -3446,6 +3475,7 @@ BatSub:AddToggle({
     Name = "Bat / Slap Aura", Default = false, Flag = "bat_aura_enabled",
     Callback = safeCallback(function(v)
         batAuraEnabled = v
+        if v then ensureBatWorker() end
         Notify("Bat Aura", v and "Enabled" or "Disabled", v and "Success" or "Error")
     end)
 })
@@ -3471,7 +3501,10 @@ GuardSub:AddToggle({
     Name = "Anti-Trap (Full Immunity / Destroy Hitboxes)", Default = false, Flag = "avoid_traps",
     Callback = safeCallback(function(v)
         avoidTrapsEnabled = v
-        if v then pcall(NeutralizeTraps) end
+        if v then
+            ensureTrapWorker()
+            pcall(NeutralizeTraps)
+        end
         Notify("Anti-Trap", v and "Immunity Active (Enemy Hitboxes Destroyed)" or "Anti-Trap Disabled", v and "Success" or "Error")
     end)
 })
@@ -3820,13 +3853,5 @@ HUB.Unload = function()
 end
 
 task.defer(function()
-    local hookOk = (hookfunction or replaceclosure or hookfunc) ~= nil
-    local bacPlan = shouldUseBacSpoof() and hookOk
-    local remoteEggs = GetNetRemote("RF/EggWorld/AskFieldEggSnapshot") ~= nil
-    local msg = "build " .. tostring(HUB.build)
-        .. " | Remote egg: " .. (remoteEggs and "OK" or "YOK")
-        .. " | BAC hook: " .. (bacPlan and "opt-in" or "kapali")
-        .. " | EggState: " .. (allowClientEggCalls() and "acik" or "kapali")
-        .. " | Config autoload: kapali"
-    Notify("y0zfqq", msg, remoteEggs and "Success" or "Warning", 5)
+    Notify("y0zfqq", "build " .. tostring(HUB.build) .. " | idle inject | hicbir ozellik acik degil", "Info", 5)
 end)
