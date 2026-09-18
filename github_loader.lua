@@ -128,23 +128,33 @@ if not hubSrc then
     return
 end
 
-g.OxideForcePC = (g.OxideForcePC ~= false)
-g.OxideUsePlayerGui = true
-g.OxideKickSafe = (g.OxideKickSafe ~= false)
-g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-g.OxideDisableTags = (g.OxideDisableTags ~= false)
-g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
-g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
-    Mobile = false,
-    Parent = pg,
-    LoadingAnimation = true,
-    LoadingDuration = 0.9,
-    DisplayOrder = 100,
-    SkipTagSystem = true,
-}
-g.OxideCreateWindowOpts.Parent = g.OxideCreateWindowOpts.Parent or pg
-g.OxideCreateWindowOpts.SkipTagSystem = true
+local bootSrc = fetchScript("y0zfqq_bootstrap.lua")
+local bootFn = bootSrc and loadstring(bootSrc, "y0zfqq_bootstrap.lua")
+if bootFn then
+    local okBoot, applyEnv = pcall(bootFn)
+    if okBoot and type(applyEnv) == "function" then
+        applyEnv(g, pg)
+    end
+else
+    g.OxideForcePC = (g.OxideForcePC ~= false)
+    g.OxideUsePlayerGui = true
+    g.OxideKickSafe = (g.OxideKickSafe ~= false)
+    g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
+    g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
+    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof ~= false)
+    g.OxideDisableTags = (g.OxideDisableTags ~= false)
+    g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
+    g.OxideCreateWindowOpts = {
+        Mobile = false, Parent = pg, LoadingAnimation = true,
+        LoadingDuration = 0.9, DisplayOrder = 100, SkipTagSystem = true,
+    }
+end
+if not g.OxideCreateWindowOpts then
+    g.OxideCreateWindowOpts = {
+        Mobile = false, Parent = pg, LoadingAnimation = true,
+        LoadingDuration = 0.9, DisplayOrder = 100, SkipTagSystem = true,
+    }
+end
 
 local runLib, compileLib = loadstring(libSrc, "Libary.lua@HTTP")
 if not runLib then bootErr("Libary derleme: " .. tostring(compileLib)); return end
@@ -155,7 +165,7 @@ end
 _G.OxideLib = lib
 _G.y0zfqqLib = lib
 
-local hubCode = "local Library = _G.OxideLib\n" .. hubSrc
+local hubCode = "local Library = _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
 local runHub, compileHub = loadstring(hubCode, "aa.lua@HTTP")
 if not runHub then bootErr("aa derleme: " .. tostring(compileHub)); return end
 local okH, runErr = pcall(runHub)
