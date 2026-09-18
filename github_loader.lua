@@ -1,5 +1,5 @@
 --[[
-  Oxide — GitHub Raw (HTTP) loader — SON SECENEK
+  y0zfqq — GitHub Raw (HTTP) loader — SON SECENEK
   ================================================
 
   1) Libary.lua + aa.lua dosyalarini GitHub repo'na yukle (ornek: selams/ klasoru)
@@ -44,12 +44,12 @@ end
 local RAW_BASE = buildRawBase()
 
 local function bootErr(msg)
-    warn("[Oxide HTTP] " .. tostring(msg))
+    warn("[y0zfqq HTTP] " .. tostring(msg))
     pcall(function()
         local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
         local pg = lp:WaitForChild("PlayerGui", 12)
         local sg = Instance.new("ScreenGui")
-        sg.Name = "OxideBootstrapError"
+        sg.Name = "y0zfqqBootstrapError"
         sg.ResetOnSpawn = false
         sg.DisplayOrder = 100000
         sg.Parent = pg
@@ -61,7 +61,7 @@ local function bootErr(msg)
         t.TextWrapped = true
         t.TextSize = 14
         t.Font = Enum.Font.GothamBold
-        t.Text = "[Oxide HTTP]\n" .. tostring(msg)
+        t.Text = "[y0zfqq HTTP]\n" .. tostring(msg)
         t.Parent = sg
         Instance.new("UICorner", t).CornerRadius = UDim.new(0, 8)
     end)
@@ -102,11 +102,11 @@ local pg = lp:WaitForChild("PlayerGui", 20)
 if not pg then bootErr("Oyuna gir — PlayerGui yok."); return end
 
 pcall(function()
-    local p = _G.OxideStealAnEgg
+    local p = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
     if p and type(p.Unload) == "function" then p.Unload() end
 end)
 
-print("[Oxide HTTP] Raw base: " .. RAW_BASE)
+print("[y0zfqq HTTP] Raw base: " .. RAW_BASE)
 
 local libSrc, libErr = fetchScript("Libary.lua")
 if not libSrc then
@@ -131,14 +131,20 @@ end
 g.OxideForcePC = (g.OxideForcePC ~= false)
 g.OxideUsePlayerGui = true
 g.OxideKickSafe = (g.OxideKickSafe ~= false)
-g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Fly Glide"
-g.OxideCreateWindowOpts = {
+g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
+g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
+g.OxideDisableTags = (g.OxideDisableTags ~= false)
+g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
+g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
     Mobile = false,
     Parent = pg,
     LoadingAnimation = true,
     LoadingDuration = 0.9,
     DisplayOrder = 100,
+    SkipTagSystem = true,
 }
+g.OxideCreateWindowOpts.Parent = g.OxideCreateWindowOpts.Parent or pg
+g.OxideCreateWindowOpts.SkipTagSystem = true
 
 local runLib, compileLib = loadstring(libSrc, "Libary.lua@HTTP")
 if not runLib then bootErr("Libary derleme: " .. tostring(compileLib)); return end
@@ -147,6 +153,7 @@ if not okL or type(lib) ~= "table" or type(lib.CreateWindow) ~= "function" then
     bootErr("Libary calismadi: " .. tostring(lib)); return
 end
 _G.OxideLib = lib
+_G.y0zfqqLib = lib
 
 local hubCode = "local Library = _G.OxideLib\n" .. hubSrc
 local runHub, compileHub = loadstring(hubCode, "aa.lua@HTTP")
@@ -154,4 +161,4 @@ if not runHub then bootErr("aa derleme: " .. tostring(compileHub)); return end
 local okH, runErr = pcall(runHub)
 if not okH then bootErr("aa calismadi:\n" .. tostring(runErr)); return end
 
-print("[Oxide HTTP] Yuklendi (GitHub Raw). Menu: Sag Ctrl / PlayerGui")
+print("[y0zfqq HTTP] Yuklendi. Menu: Sag Ctrl / PlayerGui")

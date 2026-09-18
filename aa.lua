@@ -1,11 +1,11 @@
 -- === HUB STRIP POINT - when executed through the hub ScriptLoader, which injects
 --     "local Library = _G.OxideLib" above this line instead. ===
 -- ==============================================================================
-if not Library and _G.OxideLib then
-    Library = _G.OxideLib
+if not Library then
+    Library = _G.y0zfqqLib or _G.OxideLib
 end
 if not Library or type(Library.CreateWindow) ~= "function" then
-    error("[Oxide HUB] Library bulunamadi. PC icin: loadstring(readfile('b.lua'))() veya once Libary.lua yukle.")
+    error("[y0zfqq] Library bulunamadi. PC: loadstring(readfile('b.lua'))() veya github_loader.")
 end
 
 if not game:IsLoaded() then
@@ -16,21 +16,25 @@ end
 -- RE-EXECUTION GUARD + RESOURCE TRACKING
 -- ==============================================================================
 do
-    local prev = _G.OxideStealAnEgg
+    local prev = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
 local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false }
 _G.OxideStealAnEgg = HUB
+_G.y0zfqqStealAnEgg = HUB
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
 local windowOpts = {
-    Name = "Oxide HUB | Ein Ei stehlen",
+    Name = "y0zfqq | Steal an Egg",
     LoadingAnimation = true,
-    LoadingText = "Oxide",
+    LoadingText = "y0zfqq",
+    LoadingSubtitle = "HUB",
+    LoadingFooter = "y0zfqq HUB",
+    BrandSubtitle = "y0zfqq · Steal an Egg",
     LoadingDuration = 1.2,
     Mobile = false,
-    GuiName = "OxideUI",
+    GuiName = "y0zfqqUI",
     DisplayOrder = 100,
 }
 if typeof(getgenv) == "function" then
@@ -52,7 +56,7 @@ local Window = Library:CreateWindow(windowOpts)
 local HAS_CONFIG = type(Library.SaveConfig) == "function"
     and type(Library.LoadConfig) == "function"
     and type(Library.ListConfigs) == "function"
-local CONFIG_NAME = "stealanegg"
+local CONFIG_NAME = "y0zfqq_steal"
 
 local dropdownResync = {}
 local function registerResync(handle, applyFn)
@@ -119,7 +123,7 @@ local function safeCallback(fn)
     return function(...)
         local ok, err = pcall(fn, ...)
         if not ok then
-            pcall(Notify, "Oxide HUB", "Error: " .. tostring(err), "Error", 4)
+            pcall(Notify, "y0zfqq", "Error: " .. tostring(err), "Error", 4)
         end
     end
 end
@@ -162,7 +166,22 @@ local function bypassClientDetections()
     return blocked > 0, blocked
 end
 
-pcall(bypassClientDetections)
+local function oxideEnv()
+    if typeof(getgenv) == "function" then return getgenv() end
+    return _G
+end
+
+local function shouldSkipHeavyAC()
+    local g = oxideEnv()
+    if g.OxideSkipACNeutralizer == true then return true end
+    -- Telefondaki resmi loader daha az hook/GC kullanir; PC'de ayni sekilde dene (kick azalir)
+    if g.OxideForcePC == true and g.OxidePhoneParity ~= false then return true end
+    return false
+end
+
+if not shouldSkipHeavyAC() then
+    pcall(bypassClientDetections)
+end
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- CLIENT AC NEUTRALIZER — LAYER 2-5 (GC HEAP SCANS)
@@ -296,15 +315,17 @@ end
 
 -- One background task, one pass at a time, so only a single heap snapshot is
 -- ever alive. The menu now appears instantly instead of after the scans.
-task.spawn(function()
-    pcall(AcSlices.FreezeTables)
-    task.wait()
-    pcall(AcSlices.WipeUGI)
-    task.wait()
-    pcall(AcSlices.ScrubX14)
-    task.wait()
-    pcall(AcSlices.SanitizeState)
-end)
+if not shouldSkipHeavyAC() then
+    task.spawn(function()
+        pcall(AcSlices.FreezeTables)
+        task.wait()
+        pcall(AcSlices.WipeUGI)
+        task.wait()
+        pcall(AcSlices.ScrubX14)
+        task.wait()
+        pcall(AcSlices.SanitizeState)
+    end)
+end
 
 -- ==============================================================================
 -- CHARACTER & MOVEMENT HELPERS
@@ -462,7 +483,7 @@ end
 
 local HookFn = hookfunction or replaceclosure or hookfunc or detour_function
 
-if anyRemote and HookFn then
+if anyRemote and HookFn and not shouldSkipHeavyAC() then
     local oldFire
     oldFire = HookFn(anyRemote.FireServer, function(self, ...)
         local args = table.pack(...)
@@ -640,13 +661,19 @@ end
 -- ==============================================================================
 local MAIN_ROAD_Z = -364.5
 
-local stealMovementMethod    = (typeof(getgenv) == "function" and getgenv().OxideDefaultStealMethod) or "Fly Glide"
+local function defaultStealMethod()
+    local g = oxideEnv()
+    if type(g.OxideDefaultStealMethod) == "string" then return g.OxideDefaultStealMethod end
+    if g.OxideForcePC and g.OxidePhoneParity ~= false then return "Tween Glide" end
+    return "Fly Glide"
+end
+local stealMovementMethod    = defaultStealMethod()
 local kickSafeMode           = true
 if typeof(getgenv) == "function" and getgenv().OxideKickSafe == false then
     kickSafeMode = false
 end
-local KICK_SAFE_MAX_SPEED    = 235
-local KICK_SAFE_ZONE_SPEED   = 198
+local KICK_SAFE_MAX_SPEED    = 195
+local KICK_SAFE_ZONE_SPEED   = 175
 
 local function resolveTravelSpeed(requested, inSafeZone)
     requested = tonumber(requested) or tonumber(glideSpeed) or 750
@@ -1018,12 +1045,13 @@ local MUTATION_FILTERS = {
 -- AUTOMATION STATE & PERSISTENT RETURN POSITION
 -- ==============================================================================
 local autoStealEnabled          = false
+local stealGraceUntil           = 0
 local rareEggHunter             = true
 local stealBigEggsOnly          = false
 local selectedStealRarities     = {}
 local selectedStealAreas        = {}
 local selectedMutationTypes     = {}
-local stealDelay                = kickSafeMode and 2.75 or 1.5
+local stealDelay                = kickSafeMode and 4.0 or 1.5
 local glideSpeed                = kickSafeMode and KICK_SAFE_MAX_SPEED or 750
 local ignoredEggs               = {} -- [uid] = timestamp (prevents loops on failed eggs)
 
@@ -2214,7 +2242,7 @@ end
 -- 1. Auto Steal Eggs Loop
 task.spawn(function()
     while not HUB.dead do
-        if autoStealEnabled then
+        if autoStealEnabled and os.clock() >= stealGraceUntil then
             pcall(StealBestEggOnce)
         end
         task.wait(stealDelay)
@@ -2736,8 +2764,15 @@ StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
     Callback = safeCallback(function(v)
         autoStealEnabled = v
-        if v then EnsureSavedReturnPosition() end
-        Notify("Auto Steal", v and "Enabled" or "Disabled", v and "Success" or "Error")
+        if v then
+            EnsureSavedReturnPosition()
+            local waitSec = kickSafeMode and 6 or 3
+            stealGraceUntil = os.clock() + waitSec
+            Notify("Auto Steal", ("Acildi — %d sn sonra baslar (kick onleme)"):format(waitSec), "Info", 4)
+        else
+            stealGraceUntil = 0
+            Notify("Auto Steal", "Disabled", "Error")
+        end
     end)
 })
 StealSub:AddToggle({
@@ -2747,10 +2782,10 @@ StealSub:AddToggle({
         if v and glideSpeed > KICK_SAFE_MAX_SPEED then
             glideSpeed = KICK_SAFE_MAX_SPEED
         end
-        if v and stealDelay < 2 then
-            stealDelay = 2.75
+        if v and stealDelay < 3.5 then
+            stealDelay = 4.0
         end
-        Notify("Kick-Safe", v and "On — max ~235 studs/s, no fake velocity" or "Off — faster but easier to kick", v and "Success" or "Warning")
+        Notify("Kick-Safe", v and "On — ~195 studs/s, telefon modu, gecikmeli steal" or "Off — hizli ama kick riski", v and "Success" or "Warning")
     end
 })
 StealSub:AddDropdown({
@@ -3307,15 +3342,15 @@ ConfigSub:AddKeybind({
 ConfigSub:AddDivider()
 
 ConfigSub:AddButton({
-    Name = "Unload Oxide HUB",
+    Name = "Unload y0zfqq HUB",
     Callback = safeCallback(function()
         pcall(function() HUB.Unload() end)
     end)
 })
 
     ConfigSub:AddParagraph({
-        Title = "Oxide HUB | Ein Ei stehlen",
-        Content = "Version 4.2.2 (Production)\nEquipped with UGI / Client AC Neutralizer, BAC Telemetry Spoofer, Evidence Scrubber, Strict Rarity Filtering, clean open walkway travel without wall clipping, automatic return to trigger position, and auto egg placement in pen.\nAutomated egg stealing, hatching, homestead base upgrades, treadmill speed training, rewards collector, bat aura, ESP tracker."
+        Title = "y0zfqq | Steal an Egg",
+        Content = "y0zfqq HUB — PC / telefon uyumlu.\nKick-safe steal, yol cizgisi donusu, otomatik plant, hatch & base otomasyonlari."
     })
 end
 
@@ -3346,6 +3381,7 @@ HUB.Unload = function()
 
     pcall(function() Window:Destroy() end)
     _G.OxideStealAnEgg = nil
+    _G.y0zfqqStealAnEgg = nil
 end
 
-Notify("Oxide HUB", "Ein Ei stehlen script loaded successfully!", "Success", 3.5)
+Notify("y0zfqq", "Steal an Egg hub yuklendi!", "Success", 3.5)

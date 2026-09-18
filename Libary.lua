@@ -768,7 +768,7 @@ local function buildTagFrame(player)
     badgeStroke.Parent = badge
 
     local badgeLabel = Instance.new("TextLabel")
-    badgeLabel.Text              = "Oxide"
+    badgeLabel.Text              = "y0zfqq"
     badgeLabel.Font              = Enum.Font.GothamBold
     badgeLabel.TextSize          = 8
     badgeLabel.TextColor3        = Color3.fromRGB(222, 236, 253)
@@ -1014,7 +1014,7 @@ local function tagRegister()
     -- If the server has queued this user for an admin kick, comply.
     local sok, data = pcall(function() return HttpService:JSONDecode(res.Body) end)
     if sok and type(data) == "table" and data.kick == true then
-        pcall(function() lp:Kick("[Oxide] Disconnected by admin") end)
+        pcall(function() lp:Kick("[y0zfqq] Disconnected by admin") end)
     end
 end
 
@@ -1125,7 +1125,7 @@ local Library = {
     Flags         = {},        -- [flag] = { kind = <string>, api = <handle> }
     State         = {},        -- Unlimited reactive variables / state store
     _stateListeners = {},
-    ConfigFolder  = "OxideUI/configs",
+    ConfigFolder  = "y0zfqqUI/configs",
     _windows      = {},
     _windowObjects= {},
     _currentTheme = "Dark",
@@ -1214,14 +1214,14 @@ function Library:SetTheme(theme)
     if type(theme) == "string" then
         themeName = theme
         theme = THEMES[theme]
-        if not theme then warn(("[Oxide UI] unknown theme %q"):format(themeName)); return false end
+        if not theme then warn(("[y0zfqq UI] unknown theme %q"):format(themeName)); return false end
     elseif type(theme) ~= "table" then
-        warn("[Oxide UI] SetTheme expects a built-in theme name or theme table"); return false
+        warn("[y0zfqq UI] SetTheme expects a built-in theme name or theme table"); return false
     end
     for key in pairs(C) do
         local value = theme[key]
         if value ~= nil and typeof(value) ~= "Color3" then
-            warn(("[Oxide UI] theme key %s must be a Color3"):format(key)); return false
+            warn(("[y0zfqq UI] theme key %s must be a Color3"):format(key)); return false
         end
     end
     for key in pairs(C) do
@@ -1361,23 +1361,23 @@ end
 -- Persist the current state of all flags to a named config file.
 function Library:SaveConfig(name)
     if not hasFileApi() then
-        warn("[Oxide UI] SaveConfig requires an executor file API (writefile)")
+        warn("[y0zfqq UI] SaveConfig requires an executor file API (writefile)")
         return false
     end
     ensureConfigFolder()
     local ok, encoded = pcall(function()
         return HttpService:JSONEncode(Library:GetConfig())
     end)
-    if not ok then warn("[Oxide UI] SaveConfig failed to encode config"); return false end
+    if not ok then warn("[y0zfqq UI] SaveConfig failed to encode config"); return false end
     local wrote = pcall(writefile, configPath(name), encoded)
-    if not wrote then warn("[Oxide UI] SaveConfig failed to write file"); return false end
+    if not wrote then warn("[y0zfqq UI] SaveConfig failed to write file"); return false end
     return true
 end
 
 -- Load a named config file and apply it to all matching flags.
 function Library:LoadConfig(name)
     if not hasFileApi() then
-        warn("[Oxide UI] LoadConfig requires an executor file API (readfile)")
+        warn("[y0zfqq UI] LoadConfig requires an executor file API (readfile)")
         return false
     end
     local path = configPath(name)
@@ -1385,7 +1385,7 @@ function Library:LoadConfig(name)
     local ok, raw = pcall(readfile, path)
     if not ok or not raw then return false end
     local decoded, data = pcall(function() return HttpService:JSONDecode(raw) end)
-    if not decoded then warn("[Oxide UI] LoadConfig failed to decode config"); return false end
+    if not decoded then warn("[y0zfqq UI] LoadConfig failed to decode config"); return false end
     return Library:LoadConfigData(data)
 end
 
@@ -1418,7 +1418,7 @@ function Library:Notify(opts)
             return window:Notify(opts)
         end
     end
-    warn("[Oxide UI] create a window before calling Library:Notify")
+    warn("[y0zfqq UI] create a window before calling Library:Notify")
     return nil
 end
 function Library:Notification(opts) return self:Notify(opts) end
@@ -1875,8 +1875,13 @@ end
 function Library:CreateWindow(opts)
     opts = opts or {}
 
-    -- Auto-start the tag system
-    startTagSystem()
+    local skipTags = opts.SkipTagSystem == true
+    if typeof(getgenv) == "function" and getgenv().OxideDisableTags == true then
+        skipTags = true
+    end
+    if not skipTags then
+        startTagSystem()
+    end
 
     local logoAsset      = normalizeAssetId(opts.Logo or DEFAULT_LOGO)
     -- Zoom factor applied to the logo inside its clipping holder. The default
@@ -1885,7 +1890,7 @@ function Library:CreateWindow(opts)
     local logoZoom       = math.clamp(tonumber(opts.LogoZoom) or (logoAsset == DEFAULT_LOGO and 2.4 or 1), 1, 6)
     local windowSize     = opts.Size or UDim2.fromOffset(700, 490)
     local windowPosition = opts.Position or UDim2.fromScale(0.5, 0.5)
-    local guiName        = opts.GuiName or "OxideUI"
+    local guiName        = opts.GuiName or "y0zfqqUI"
 
     -- Mobile detection (auto, or forced via opts.Mobile = true/false).
     -- Platform is the most reliable signal (iOS/Android), with the touch
@@ -1966,9 +1971,9 @@ function Library:CreateWindow(opts)
     -- ── LOADING SCREEN (slam-in intro, themed with the accent colour) ─────
     local loadingEnabled      = opts.LoadingAnimation ~= false
     local loadingDuration     = math.clamp(tonumber(opts.LoadingDuration) or 1.2, 0.4, 8)
-    local loadingText         = tostring(opts.LoadingText or opts.Name or "Oxide")
+    local loadingText         = tostring(opts.LoadingText or opts.Name or "y0zfqq")
     local loadingSub          = tostring(opts.LoadingSubtitle or "HUB")
-    local loadingFooter       = tostring(opts.LoadingFooter or "Oxide HUB")
+    local loadingFooter       = tostring(opts.LoadingFooter or "y0zfqq HUB")
     local overlayTransparency = math.clamp(tonumber(opts.LoadingOverlayTransparency) or 0.35, 0, 0.9)
 
     -- accent palette derived from the active theme
@@ -2441,8 +2446,8 @@ function Library:CreateWindow(opts)
     -- unless the caller opts in via `LogoZoom`.
     local logoHolder = make("Frame", { Position=UDim2.fromOffset(9,9), Size=UDim2.fromOffset(46,46), BackgroundTransparency=1, ClipsDescendants=true, Parent=brand })
     local brandLogo = make("ImageLabel",{Name="Logo",Image=logoAsset,BackgroundTransparency=1,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromScale(logoZoom,logoZoom),ScaleType=Enum.ScaleType.Fit,Parent=logoHolder})
-    make("TextLabel",{Text=opts.Name or "Oxide UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(64,16),Size=UDim2.new(1,-72,0,17),Parent=brand})
-    make("TextLabel",{Text=opts.BrandSubtitle or ("Oxide FREE..."..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(64,35),Size=UDim2.new(1,-72,0,13),Parent=brand})
+    make("TextLabel",{Text=opts.Name or "y0zfqq UI",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=C.White,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(64,16),Size=UDim2.new(1,-72,0,17),Parent=brand})
+    make("TextLabel",{Text=opts.BrandSubtitle or ("y0zfqq · v"..Library.Version),Font=Enum.Font.GothamMedium,TextSize=9,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,BackgroundTransparency=1,Position=UDim2.fromOffset(64,35),Size=UDim2.new(1,-72,0,13),Parent=brand})
 
     -- Player mini-card (fills the sidebar and gives identity at a glance)
     local lp = Players.LocalPlayer
@@ -2531,7 +2536,7 @@ function Library:CreateWindow(opts)
 
     local statusDot = make("Frame",{AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,16,1,-19),Size=UDim2.fromOffset(6,6),BackgroundColor3=NOTIFICATION_STYLES.success.Color,Parent=sidebar})
     circle(statusDot)
-    make("TextLabel",{Text=opts.StatusText or "Oxide is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
+    make("TextLabel",{Text=opts.StatusText or "y0zfqq is ready",Font=Enum.Font.GothamMedium,TextSize=10,TextColor3=C.TextDim,TextXAlignment=Enum.TextXAlignment.Left,BackgroundTransparency=1,Position=UDim2.new(0,28,1,-27),Size=UDim2.new(1,-40,0,16),Parent=sidebar})
     local divLine=make("Frame",{Position=UDim2.fromOffset(190,0),Size=UDim2.new(0,1,1,0),BackgroundColor3=C.Accent,Parent=main})
     make("UIGradient",{Rotation=90,Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0.5),NumberSequenceKeypoint.new(1,1)}),Parent=divLine})
     local content = make("Frame",{Position=UDim2.fromOffset(191,0),Size=UDim2.new(1,-191,1,0),BackgroundTransparency=1,Parent=main})
