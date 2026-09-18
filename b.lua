@@ -1,5 +1,5 @@
---[[
-    y0zfqq — PC + telefon birleşik loader
+﻿--[[
+    y0zfqq â€” PC + telefon birleÅŸik loader
     ========================================
     PC executor workspace ornegi:
         selams/b.lua
@@ -12,10 +12,10 @@
     Dosyalar workspace kokundeyse:
         loadstring(readfile("b.lua"))()
 
-    YAPMA: readfile("selams") — bu KLASOR, "Expected File But Got Directory" verir.
+    YAPMA: readfile("selams") â€” bu KLASOR, "Expected File But Got Directory" verir.
 
-    GUI gelmiyorsa: F9 konsolda [y0zfqq] hata satırına bak.
-    Alternatif hub: opensource_egg.txt (BobloUI — PlayerGui)
+    GUI gelmiyorsa: F9 konsolda [y0zfqq] hata satÄ±rÄ±na bak.
+    Alternatif hub: opensource_egg.txt (BobloUI â€” PlayerGui)
 ]]
 
 if typeof(getgenv) ~= "function" then
@@ -58,7 +58,7 @@ end
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local playerGui = lp:WaitForChild("PlayerGui", 20)
 if not playerGui then
-    showBootstrapError("PlayerGui yok — oyuna tam giris yap.")
+    showBootstrapError("PlayerGui yok â€” oyuna tam giris yap.")
     return
 end
 
@@ -99,7 +99,7 @@ end
 
 local function readOneFile(path)
     if pathIsFolder(path) then
-        return nil, ("'%s' klasor — dosya degil.\nOrnek: selams/b.lua veya selams/Libary.lua"):format(path)
+        return nil, ("'%s' klasor â€” dosya degil.\nOrnek: selams/b.lua veya selams/Libary.lua"):format(path)
     end
     if not pathIsFile(path) then
         return nil, nil
@@ -120,7 +120,7 @@ end
 
 local function readScript(candidates)
     if not readfile then
-        return nil, "readfile yok — executor workspace + selams/b.lua kullan."
+        return nil, "readfile yok â€” executor workspace + selams/b.lua kullan."
     end
     local lastErr
     for _, path in ipairs(candidates) do
@@ -159,9 +159,9 @@ if not bootApplied then
     g.OxideForcePC = (g.OxideForcePC ~= false)
     g.OxideUsePlayerGui = true
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-    g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
-    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
+    g.OxideSkipACNeutralizer = false
+    g.OxideEnableBacSpoof = true
+    g.y0zfqqEnableBacSpoof = true
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
@@ -186,7 +186,7 @@ if useLazyIdle then
             showBootstrapError("aa_idle: " .. tostring(runErr))
             return
         end
-        print("[y0zfqq] OK — idle inject. Sag Ctrl ile tam hub.")
+        print("[y0zfqq] OK â€” idle inject. Sag Ctrl ile tam hub.")
         return
     end
 end
@@ -218,7 +218,7 @@ if not hubSrc then
 end
 
 if not hubSrc:find("OxideStealAnEgg", 1, true) then
-    warn("[y0zfqq] aa.lua hub imzasi bulunamadi — yine de deneniyor.")
+    warn("[y0zfqq] aa.lua hub imzasi bulunamadi â€” yine de deneniyor.")
 end
 
 hubSrc = "local Library = _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
@@ -242,4 +242,5 @@ if g.OxideLoadSimpleFarm == true then
     end
 end
 
-print("[y0zfqq] OK — GUI PlayerGui'de. Sag Ctrl ile ac/kapa.")
+print("[y0zfqq] OK â€” GUI PlayerGui'de. Sag Ctrl ile ac/kapa.")
+

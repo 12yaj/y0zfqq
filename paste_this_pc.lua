@@ -1,8 +1,8 @@
---[[
-  ═══════════════════════════════════════════════════════════════
-  y0zfqq — BU DOSYANIN TAMAMINI EXECUTOR'A YAPIŞTIR (Execute)
-  Komut satırına readfile("selams") YAZMA — klasör hatası verir.
-  ═══════════════════════════════════════════════════════════════
+﻿--[[
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  y0zfqq â€” BU DOSYANIN TAMAMINI EXECUTOR'A YAPIÅTIR (Execute)
+  Komut satÄ±rÄ±na readfile("selams") YAZMA â€” klasÃ¶r hatasÄ± verir.
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 ]]
 
 if typeof(getgenv) ~= "function" then getgenv = function() return _G end end
@@ -53,7 +53,7 @@ end
 local function tryRead(path)
     if not path or path == "" then return nil end
     if isDir(path) then
-        return nil, "KLASOR: " .. path .. "  →  ornek: " .. path .. "/b.lua"
+        return nil, "KLASOR: " .. path .. "  â†’  ornek: " .. path .. "/b.lua"
     end
     if not isFile(path) then return nil end
     local ok, body = pcall(readfile, path)
@@ -76,7 +76,7 @@ local function listDirHint(dir)
     if not ok or type(files) ~= "table" or #files == 0 then return "" end
     local lines = {}
     for i = 1, math.min(#files, 12) do
-        lines[#lines + 1] = "  • " .. tostring(files[i])
+        lines[#lines + 1] = "  â€¢ " .. tostring(files[i])
     end
     return "\nlistfiles('" .. dir .. "'):\n" .. table.concat(lines, "\n")
 end
@@ -124,7 +124,7 @@ end
 if not game:IsLoaded() then game.Loaded:Wait() end
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local pg = lp:WaitForChild("PlayerGui", 20)
-if not pg then bootErr("Oyuna gir — PlayerGui yok."); return end
+if not pg then bootErr("Oyuna gir â€” PlayerGui yok."); return end
 
 pcall(function()
     local p = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
@@ -158,8 +158,9 @@ end
 g.OxideForcePC = true
 g.OxideUsePlayerGui = true
 g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof ~= false)
+g.OxideSkipACNeutralizer = false
+g.OxideEnableBacSpoof = true
+g.y0zfqqEnableBacSpoof = true
 g.OxideDisableTags = (g.OxideDisableTags ~= false)
 g.OxideKickSafe = (g.OxideKickSafe ~= false)
 g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
@@ -188,5 +189,6 @@ if not runHub then bootErr("aa derleme: " .. tostring(errHub)); return end
 local okH, errRun = pcall(runHub)
 if not okH then bootErr("aa calismadi:\n" .. tostring(errRun)); return end
 
-print("[y0zfqq] Yuklendi — " .. libPath .. " + " .. hubPath)
+print("[y0zfqq] Yuklendi â€” " .. libPath .. " + " .. hubPath)
 print("[y0zfqq] Menu: Sag Ctrl")
+
