@@ -2970,8 +2970,9 @@ local function SetAntiAFK(v)
 end
 
 -- ==============================================================================
--- UI CREATION - MAIN TABS
+-- UI CREATION - MAIN TABS (ayri fonksiyon: Luau 200 local limiti)
 -- ==============================================================================
+local function CreateHubUI()
 local EggsTab     = Window:AddTab({ Name = "Eggs", Subtitle = "Steal, hatch & plant", Icon = "crown" })
 local BaseTab     = Window:AddTab({ Name = "Base", Subtitle = "Homestead & training", Icon = "bolt" })
 local CombatTab   = Window:AddTab({ Name = "Combat", Subtitle = "Bat, slaps & defense", Icon = "combat" })
@@ -3584,6 +3585,9 @@ ConfigSub:AddButton({
         Content = "y0zfqq HUB\nBAC-4512 kick: Auto Hatch'i steal ile birlikte acma. Kick-Safe + Tween Glide kullan.\nTelefon modu: GC bypass kapali, BAC spoof acik."
     })
 end
+
+end -- CreateHubUI
+CreateHubUI()
 
 -- ==============================================================================
 -- HUB CLEANUP & UNLOAD HANDLER
