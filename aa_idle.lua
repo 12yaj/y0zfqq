@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-local IDLE_BUILD = 12
+local IDLE_BUILD = 13
 
 local function env()
     if typeof(getgenv) == "function" then return getgenv() end
@@ -79,7 +79,14 @@ end
 local function bootFullHub()
     if booted or loading or HUB.dead then return end
     loading = true
-    print("[y0zfqq] hub yukleniyor (Libary + aa)...")
+    local gPre = env()
+    local preGrace = tonumber(gPre.y0zfqqHubLoadGraceSec) or 12
+    preGrace = math.clamp(preGrace, 0, 60)
+    if preGrace > 0 then
+        print("[y0zfqq] Sag Ctrl: ", preGrace, "sn bekle, sonra Libary+aa (BAC-5516)")
+        task.wait(preGrace)
+    end
+    if HUB.dead then loading = false return end
 
     local base = rawBase()
     local t = tostring(os.time())
@@ -110,8 +117,8 @@ local function bootFullHub()
     end
 
     local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-    if not hubBuild or hubBuild < 12 then
-        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 12+ yukle.")
+    if not hubBuild or hubBuild < 13 then
+        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 13+ yukle.")
         loading = false
         return
     end
@@ -143,7 +150,12 @@ local function bootFullHub()
     end
 
     local g = env()
-    g.y0zfqqOpenMenuNow = true
+    g.y0zfqqAllowClientEggApi = false
+    g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)
+    g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
+    g.y0zfqqOpenMenuNow = false
+    g.y0zfqqOpenMenuAfterLoad = true
+    g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 18
 
     local okH, runErr = pcall(runHub)
     loading = false

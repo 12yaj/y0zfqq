@@ -40,7 +40,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 12 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 13 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -91,7 +91,7 @@ do
         _G.y0zfqqStealAnEgg = HUB
     end
 end
-print("[y0zfqq] aa build", HUB.build, "- GUI yok, menu: Sag Ctrl")
+print("[y0zfqq] aa build", HUB.build, "- remote egg, EggState yok, menu: Sag Ctrl")
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
@@ -285,10 +285,6 @@ local function shouldRunEvidenceScrub()
     return true
 end
 
-if not shouldSkipHeavyAC() then
-    pcall(bypassClientDetections)
-end
-
 -- ══════════════════════════════════════════════════════════════════════════════
 -- CLIENT AC NEUTRALIZER — LAYER 2-5 (GC HEAP SCANS)
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -417,20 +413,6 @@ do
             end)
         end)
     end
-end
-
--- One background task, one pass at a time, so only a single heap snapshot is
--- ever alive. The menu now appears instantly instead of after the scans.
-if not shouldSkipHeavyAC() then
-    task.spawn(function()
-        pcall(AcSlices.FreezeTables)
-        task.wait()
-        pcall(AcSlices.WipeUGI)
-        task.wait()
-        pcall(AcSlices.ScrubX14)
-        task.wait()
-        pcall(AcSlices.SanitizeState)
-    end)
 end
 
 -- ==============================================================================
@@ -630,142 +612,167 @@ local function installBacTelemetryHook()
     return true
 end
 
--- BAC hook inject'te HIC calismaz. Acmak: getgenv().y0zfqqEnableBacSpoof = true (2513/2514 risk)
-if shouldUseBacSpoof() and HookFn then
-    local delaySec = 18
-    pcall(function()
-        local g = oxideEnv()
-        delaySec = tonumber(g.y0zfqqBacSpoofDelay) or tonumber(g.OxideBacSpoofDelay) or delaySec
-    end)
-    task.spawn(function()
-        task.wait(math.clamp(delaySec, 8, 45))
-        if HUB.dead then return end
-        local ok = installBacTelemetryHook()
-        if ok then
-            pcall(function() Notify("y0zfqq", "BAC telemetry hazir (gecikmeli)", "Info", 3) end)
-        end
-        while not HUB.dead do
-            task.wait(10)
-            if bacHookInstalled then
-                local alive = false
-                for r in pairs(remoteSet) do
-                    if r:IsDescendantOf(game) then alive = true; break end
-                end
-                if not alive then
-                    table.clear(remoteSet)
-                    anyRemote = nil
-                    model = nil
-                    scanRemotes()
-                end
-            end
-        end
-    end)
-end
+local hubRuntimeStarted = false
+local function startHubRuntimeLayers()
+    if hubRuntimeStarted or HUB.dead then return end
+    hubRuntimeStarted = true
 
--- Real-time Memory Evidence Scrubber for Character Integrity
--- PHONE FIX: the "not found yet" path used to re-scan the ENTIRE GC heap every
--- 0.2 s, forever. On a phone that is a continuous full-heap scan - the client
--- froze and the watchdog killed it right at "execute". Scans are now sliced, and
--- the retry backs off from 5 s up to 30 s. Once the table is found, the cheap
--- per-tick scrub still runs at 0.2 s exactly as before.
-if shouldRunEvidenceScrub() then
-task.spawn(function()
-    if not (getgc or (debug and debug.getgc)) then return end
-    local st = nil
-    local misses = 0
-
-    local function findIntegrityTable()
-        local found = nil
-        ScanGCHeap(function(o)
-            if found then return true end
-            if type(o) ~= "table" then return end
-            local hit = false
-            pcall(function()
-                hit = (rawget(o, "ValidationLocked") ~= nil and rawget(o, "Evidence") ~= nil)
-                    or (rawget(o, "ThreatLevel") ~= nil and rawget(o, "LastObservedSample") ~= nil)
-            end)
-            if hit then
-                found = o
-                return true
-            end
-        end, 250)
-        return found
+    if not shouldSkipHeavyAC() then
+        pcall(bypassClientDetections)
+        task.spawn(function()
+            pcall(AcSlices.FreezeTables)
+            task.wait()
+            pcall(AcSlices.WipeUGI)
+            task.wait()
+            pcall(AcSlices.ScrubX14)
+            task.wait()
+            pcall(AcSlices.SanitizeState)
+        end)
     end
 
-    track(LP.CharacterAdded:Connect(function()
-        task.wait(1)
-        st = findIntegrityTable()
-    end))
-
-    while not HUB.dead do
-        if not st then
-            st = findIntegrityTable()
-            if not st then
-                -- Back off between full heap scans: 5 s, 10 s, 20 s, then 30 s.
-                misses = misses + 1
-                local waitFor = math.min(5 * (2 ^ math.min(misses - 1, 3)), 30)
-                local slept = 0
-                while slept < waitFor and not HUB.dead do
-                    task.wait(0.5)
-                    slept = slept + 0.5
-                end
-            elseif misses > 0 then
-                misses = 0
+    if shouldUseBacSpoof() and HookFn then
+        local delaySec = 18
+        pcall(function()
+            local g = oxideEnv()
+            delaySec = tonumber(g.y0zfqqBacSpoofDelay) or tonumber(g.OxideBacSpoofDelay) or delaySec
+        end)
+        task.spawn(function()
+            task.wait(math.clamp(delaySec, 8, 45))
+            if HUB.dead then return end
+            local ok = installBacTelemetryHook()
+            if ok then
+                pcall(function() Notify("y0zfqq", "BAC telemetry hazir (gecikmeli)", "Info", 3) end)
             end
-        end
-
-        if st then
-            pcall(function()
-                local ev = rawget(st, "Evidence")
-                if type(ev) == "table" then
-                    for ek, evVal in pairs(ev) do
-                        if type(evVal) == "number" and evVal ~= 0 then
-                            rawset(ev, ek, 0)
-                        end
+            while not HUB.dead do
+                task.wait(10)
+                if bacHookInstalled then
+                    local alive = false
+                    for r in pairs(remoteSet) do
+                        if r:IsDescendantOf(game) then alive = true; break end
+                    end
+                    if not alive then
+                        table.clear(remoteSet)
+                        anyRemote = nil
+                        model = nil
+                        scanRemotes()
                     end
                 end
-                if rawget(st, "ThreatLevel") ~= "Trusted" then rawset(st, "ThreatLevel", "Trusted") end
-                if rawget(st, "ValidationLocked") == true then rawset(st, "ValidationLocked", false) end
-                if rawget(st, "FirstSuspiciousAt") ~= nil then rawset(st, "FirstSuspiciousAt", nil) end
-                if rawget(st, "KickQueued") == true then rawset(st, "KickQueued", false) end
-                if rawget(st, "TamperScore") ~= nil then rawset(st, "TamperScore", 0) end
-                if rawget(st, "InvalidHeartbeatCount") ~= nil then rawset(st, "InvalidHeartbeatCount", 0) end
-
-                local los = rawget(st, "LastObservedSample")
-                if los ~= nil then
-                    if rawget(st, "LastGameplayTrustedSample") == nil then rawset(st, "LastGameplayTrustedSample", los) end
-                    if rawget(st, "LastValidatedSample") == nil then rawset(st, "LastValidatedSample", los) end
-                    if rawget(st, "LastValidatedGroundedSample") == nil then rawset(st, "LastValidatedGroundedSample", los) end
-                    if rawget(st, "LastConfirmedGroundSample") == nil then rawset(st, "LastConfirmedGroundSample", los) end
-                    if rawget(st, "LastGoodSample") == nil then rawset(st, "LastGoodSample", los) end
-                end
-            end)
-        end
-        task.wait(0.2)
+            end
+        end)
     end
-end)
+
+    if shouldRunEvidenceScrub() then
+        task.spawn(function()
+            if not (getgc or (debug and debug.getgc)) then return end
+            local st = nil
+            local misses = 0
+
+            local function findIntegrityTable()
+                local found = nil
+                ScanGCHeap(function(o)
+                    if found then return true end
+                    if type(o) ~= "table" then return end
+                    local hit = false
+                    pcall(function()
+                        hit = (rawget(o, "ValidationLocked") ~= nil and rawget(o, "Evidence") ~= nil)
+                            or (rawget(o, "ThreatLevel") ~= nil and rawget(o, "LastObservedSample") ~= nil)
+                    end)
+                    if hit then
+                        found = o
+                        return true
+                    end
+                end, 250)
+                return found
+            end
+
+            track(LP.CharacterAdded:Connect(function()
+                task.wait(1)
+                st = findIntegrityTable()
+            end))
+
+            while not HUB.dead do
+                if not st then
+                    st = findIntegrityTable()
+                    if not st then
+                        misses = misses + 1
+                        local waitFor = math.min(5 * (2 ^ math.min(misses - 1, 3)), 30)
+                        local slept = 0
+                        while slept < waitFor and not HUB.dead do
+                            task.wait(0.5)
+                            slept = slept + 0.5
+                        end
+                    elseif misses > 0 then
+                        misses = 0
+                    end
+                end
+
+                if st then
+                    pcall(function()
+                        local ev = rawget(st, "Evidence")
+                        if type(ev) == "table" then
+                            for ek, evVal in pairs(ev) do
+                                if type(evVal) == "number" and evVal ~= 0 then
+                                    rawset(ev, ek, 0)
+                                end
+                            end
+                        end
+                        if rawget(st, "ThreatLevel") ~= "Trusted" then rawset(st, "ThreatLevel", "Trusted") end
+                        if rawget(st, "ValidationLocked") == true then rawset(st, "ValidationLocked", false) end
+                        if rawget(st, "FirstSuspiciousAt") ~= nil then rawset(st, "FirstSuspiciousAt", nil) end
+                        if rawget(st, "KickQueued") == true then rawset(st, "KickQueued", false) end
+                        if rawget(st, "TamperScore") ~= nil then rawset(st, "TamperScore", 0) end
+                        if rawget(st, "InvalidHeartbeatCount") ~= nil then rawset(st, "InvalidHeartbeatCount", 0) end
+
+                        local los = rawget(st, "LastObservedSample")
+                        if los ~= nil then
+                            if rawget(st, "LastGameplayTrustedSample") == nil then rawset(st, "LastGameplayTrustedSample", los) end
+                            if rawget(st, "LastValidatedSample") == nil then rawset(st, "LastValidatedSample", los) end
+                            if rawget(st, "LastValidatedGroundedSample") == nil then rawset(st, "LastValidatedGroundedSample", los) end
+                            if rawget(st, "LastConfirmedGroundSample") == nil then rawset(st, "LastConfirmedGroundSample", los) end
+                            if rawget(st, "LastGoodSample") == nil then rawset(st, "LastGoodSample", los) end
+                        end
+                    end)
+                end
+                task.wait(0.2)
+            end
+        end)
+    end
 end
 
 -- ==============================================================================
--- GAME NETWORKING & MODULE INTEGRATION
+-- GAME NETWORKING & MODULE INTEGRATION (lazy — BAC-5516 EggState/PlacedEggRenderer)
 -- ==============================================================================
 local EggState, PlotState, AreasData, RarityData, AssetsData, EggToolDisplay, AreaEggSlotIdentity
-if shouldRequireGameDataModules() then
+local SaveModule
+local gameDataLoaded, clientEggModulesTried, saveModuleTried = false, false, false
+
+local function ensureGameDataModules()
+    if gameDataLoaded or not shouldRequireGameDataModules() then return end
+    gameDataLoaded = true
     pcall(function() AreasData = require(RS.Data.Areas) end)
     pcall(function() RarityData = require(RS.Data.Rarity) end)
     pcall(function() AssetsData = require(RS.Data.Assets) end)
 end
-local SaveModule
-if allowClientEggCalls() then
+
+local function ensureClientEggModules()
+    if not allowClientEggCalls() then return end
+    if clientEggModulesTried then return end
+    clientEggModulesTried = true
     pcall(function() EggState = require(RS.Client.EggState) end)
     pcall(function() PlotState = require(RS.Client.PlotState) end)
-    pcall(function() SaveModule = require(RS.Shared.Save) end)
     pcall(function() EggToolDisplay = require(RS.Shared.Eggs.EggToolDisplay) end)
     pcall(function()
         AreaEggSlotIdentity = (RS:FindFirstChild("Shared") and RS.Shared:FindFirstChild("Util") and require(RS.Shared.Util.AreaEggSlotIdentity))
             or (RS:FindFirstChild("Util") and require(RS.Util.AreaEggSlotIdentity))
             or (RS:FindFirstChild("Shared") and RS.Shared:FindFirstChild("Utils") and require(RS.Shared.Utils.AreaEggSlotIdentity))
     end)
+end
+
+local function ensureSaveModule()
+    if SaveModule or saveModuleTried then return SaveModule end
+    saveModuleTried = true
+    pcall(function() SaveModule = require(RS.Shared.Save) end)
+    return SaveModule
 end
 
 local function GetNetRemote(name)
@@ -776,17 +783,19 @@ end
 local eggSnapCache = { t = 0, data = nil }
 local EGG_SNAP_CACHE_SEC = 2.8
 
-local function FetchFieldEggSnapshot(forceRefresh)
+local function FetchFieldEggSnapshot(forceRefresh, syncRemotes)
     if not forceRefresh and eggSnapCache.data and (os.clock() - eggSnapCache.t) < EGG_SNAP_CACHE_SEC then
         return eggSnapCache.data
     end
-    local syncRf = GetNetRemote("RF/EggWorld/AskFieldEggSync")
-        or GetNetRemote("RF/EggWorld/SyncFieldEggs")
-    if syncRf then
-        pcall(function()
-            if syncRf:IsA("RemoteFunction") then syncRf:InvokeServer()
-            else syncRf:FireServer() end
-        end)
+    if syncRemotes == true then
+        local syncRf = GetNetRemote("RF/EggWorld/AskFieldEggSync")
+            or GetNetRemote("RF/EggWorld/SyncFieldEggs")
+        if syncRf then
+            pcall(function()
+                if syncRf:IsA("RemoteFunction") then syncRf:InvokeServer()
+                else syncRf:FireServer() end
+            end)
+        end
     end
     local snapRf = GetNetRemote("RF/EggWorld/AskFieldEggSnapshot")
     if snapRf and snapRf:IsA("RemoteFunction") then
@@ -796,6 +805,9 @@ local function FetchFieldEggSnapshot(forceRefresh)
             eggSnapCache.t = os.clock()
             return snap
         end
+    end
+    if allowClientEggCalls() then
+        ensureClientEggModules()
     end
     if allowClientEggCalls() and EggState and EggState.ReadFieldEggs then
         local ok, snap = pcall(EggState.ReadFieldEggs)
@@ -856,8 +868,24 @@ end
 -- CLEAN ROAD & FLIGHT PATH NAVIGATION (Anti-Trap & Zero Kick Engine)
 -- ==============================================================================
 local function InitHubFeatures()
+    local g0 = oxideEnv()
+    local grace = tonumber(g0.y0zfqqMenuGraceAfterLoad) or tonumber(g0.y0zfqqMenuGraceSec) or 0
+    grace = math.clamp(grace, 0, 90)
+    if grace > 0 then
+        print("[y0zfqq] Ctrl sonrasi", grace, "sn bekleniyor (BAC-5516 onleme)...")
+        task.wait(grace)
+    end
+    if HUB.dead then return end
+
+    startHubRuntimeLayers()
+
     if not Window then
         Window = Library:CreateWindow(windowOpts)
+        Window:SetVisible(false)
+        task.defer(function()
+            if HUB.dead or not Window then return end
+            pcall(function() Window:SetVisible(true) end)
+        end)
     end
 
 local MAIN_ROAD_Z = -364.5
@@ -1313,6 +1341,9 @@ local antiRagdollEnabled        = false
 -- ==============================================================================
 local function GetEggRarityInfo(egg)
     if not egg then return "Common", 100 end
+    if egg.AssetCategory or egg.Category then
+        ensureGameDataModules()
+    end
 
     if type(egg.Rarity) == "string" and egg.Rarity ~= "" then
         local name = egg.Rarity
@@ -1445,7 +1476,7 @@ local function isBigEgg(record)
 end
 
 local function GetMatchingFieldEggs(areasFilter, raritiesFilter, mutationsFilter)
-    local snapshot = FetchFieldEggSnapshot(true)
+    local snapshot = FetchFieldEggSnapshot(true, true)
     if not snapshot or not snapshot.Records then return {} end
 
     local matched = {}
@@ -1656,7 +1687,7 @@ local function StealSpecificEggRobust(targetItem)
 
     -- Verify the egg is still present in the latest snapshot before traveling
     do
-        local snap = FetchFieldEggSnapshot(true)
+        local snap = FetchFieldEggSnapshot(true, true)
         if snap and snap.Records then
             local stillThere = false
             for _, r in ipairs(snap.Records) do
@@ -2035,6 +2066,7 @@ end
 
 local function HatchAllReadyEggs()
     if not allowClientEggCalls() then return 0 end
+    ensureClientEggModules()
     if not EggState or not EggState.ReadOwnedEggs then return 0 end
     local ok, snapshot = pcall(EggState.ReadOwnedEggs, LP.UserId)
     if not ok or not snapshot then return 0 end
@@ -2433,16 +2465,20 @@ end
 local function DropHeldEgg()
     local rf = GetNetRemote("RF/EggWorld/AskFieldEggDrop")
     if rf then pcall(function() rf:InvokeServer() end) end
-    if allowClientEggCalls() and EggState and EggState.DropFieldEgg then
-        pcall(EggState.DropFieldEgg)
+    if allowClientEggCalls() then
+        ensureClientEggModules()
+        if EggState and EggState.DropFieldEgg then
+            pcall(EggState.DropFieldEgg)
+        end
     end
 end
 
 local function BuyAffordableTrails()
     local rf = GetNetRemote("RF/Trailwear/AskPurchase")
     local TrailsData = RS:FindFirstChild("Data") and RS.Data:FindFirstChild("Trails") and require(RS.Data.Trails)
+    local saveMod = ensureSaveModule()
     local save = nil
-    pcall(function() save = SaveModule and SaveModule.Get and SaveModule.Get() end)
+    pcall(function() save = saveMod and saveMod.Get and saveMod.Get() end)
     if not rf or not TrailsData or not save then return end
 
     local myMoney = tonumber(save.Money) or 0
@@ -2483,9 +2519,10 @@ end
 
 local function SellSelectedPets()
     local re = GetNetRemote("RE/PetSatchel/SellPet")
-    if not re or not SaveModule then return end
+    local saveMod = ensureSaveModule()
+    if not re or not saveMod then return end
     local save = nil
-    pcall(function() save = SaveModule.Get and SaveModule.Get() end)
+    pcall(function() save = saveMod.Get and saveMod.Get() end)
     local inv = save and save.Inventory
     if type(inv) ~= "table" then return end
 
@@ -2501,9 +2538,10 @@ local function SellSelectedPets()
 end
 
 local function SellSelectedEggs()
-    if not SaveModule then return end
+    local saveMod = ensureSaveModule()
+    if not saveMod then return end
     local save = nil
-    pcall(function() save = SaveModule.Get and SaveModule.Get() end)
+    pcall(function() save = saveMod.Get and saveMod.Get() end)
     if not save then return end
     local inv = save.EggInventory
     if type(inv) ~= "table" then return end
@@ -3830,7 +3868,9 @@ end
 
 do
     local g = oxideEnv()
-    if g.y0zfqqOpenMenuNow == true then
+    if g.y0zfqqOpenMenuAfterLoad == true then
+        task.defer(bootMenu)
+    elseif g.y0zfqqOpenMenuNow == true then
         bootMenu()
     else
         track(UserInputService.InputBegan:Connect(function(input, gp)
