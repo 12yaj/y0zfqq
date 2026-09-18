@@ -12,17 +12,36 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
+local PlayersEarly = game:GetService("Players")
+local function oxideEnvEarly()
+    if typeof(getgenv) == "function" then return getgenv() end
+    return _G
+end
+
+-- BAC-3514/3517: executor + menu aninda yuklenince idle kick — once oyuna otur
+local function applyJoinGrace()
+    local g = oxideEnvEarly()
+    if g.y0zfqqDeferLoad == false or g.OxideDeferLoad == false then return end
+    if g.OxideForcePC ~= true and g.y0zfqqJoinGrace ~= true then return end
+    local sec = tonumber(g.y0zfqqJoinGraceSec) or tonumber(g.OxideJoinGraceSec) or 15
+    sec = math.clamp(sec, 5, 90)
+    local lp = PlayersEarly.LocalPlayer or PlayersEarly.PlayerAdded:Wait()
+    if not lp.Character then lp.CharacterAdded:Wait() end
+    task.wait(sec)
+end
+applyJoinGrace()
+
 -- ==============================================================================
 -- RE-EXECUTION GUARD + RESOURCE TRACKING
 -- ==============================================================================
 do
     local prev = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
+    if typeof(getgenv) == "function" then
+        prev = prev or getgenv().__y0zfqqHub
+    end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 5 }
-_G.OxideStealAnEgg = HUB
-_G.y0zfqqStealAnEgg = HUB
-print("[y0zfqq] aa build", HUB.build, "(2513=BAC hook kapali | build<5 eski GitHub)")
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 6 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -35,13 +54,17 @@ local windowOpts = {
     BrandSubtitle = "y0zfqq · Steal an Egg",
     LoadingDuration = 1.2,
     Mobile = false,
-    GuiName = "y0zfqqUI",
+    GuiName = "PlayerMenuUI",
     DisplayOrder = 100,
 }
 if typeof(getgenv) == "function" then
     local g = getgenv()
     if g.OxideForcePC == true then
         windowOpts.Mobile = false
+    end
+    if g.y0zfqqStealthGui == true or g.OxideStealthGui == true then
+        windowOpts.GuiName = "SettingsUI"
+        windowOpts.Name = "Settings"
     end
     if typeof(g.OxideCreateWindowOpts) == "table" then
         for k, v in pairs(g.OxideCreateWindowOpts) do
@@ -50,6 +73,17 @@ if typeof(getgenv) == "function" then
     end
 end
 local Window = Library:CreateWindow(windowOpts)
+
+do
+    local g = oxideEnvEarly()
+    if g.y0zfqqHideGlobals ~= false and g.OxideHideGlobals ~= false then
+        getgenv().__y0zfqqHub = HUB
+    else
+        _G.OxideStealAnEgg = HUB
+        _G.y0zfqqStealAnEgg = HUB
+    end
+end
+print("[y0zfqq] aa build", HUB.build)
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
@@ -3027,7 +3061,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-2513: PC'de BAC hook KAPALI (build 5). Trap/KB kapali.\nKick-Safe + Tween Glide + Area. 3517 olursa spoof opt-in.",
+    Content = "BAC-3514: yukleme 15sn gecikmeli (join grace). Hook kapali.\nKick-Safe + Tween Glide + Area. Menu: Sag Ctrl.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3660,6 +3694,10 @@ HUB.Unload = function()
     end
 
     pcall(function() Window:Destroy() end)
+    pcall(function()
+        local g = getgenv()
+        g.__y0zfqqHub = nil
+    end)
     _G.OxideStealAnEgg = nil
     _G.y0zfqqStealAnEgg = nil
 end

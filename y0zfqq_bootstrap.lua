@@ -1,6 +1,12 @@
 --[[ y0zfqq — ortak getgenv ayarlari (b.lua / paste_this_pc readfile ile yukler) ]]
 return function(g, playerGui)
     g.OxideForcePC = (g.OxideForcePC ~= false)
+    g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad ~= false)
+    g.OxideDeferLoad = (g.OxideDeferLoad ~= false)
+    g.y0zfqqJoinGraceSec = g.y0zfqqJoinGraceSec or 15
+    g.OxideJoinGraceSec = g.OxideJoinGraceSec or g.y0zfqqJoinGraceSec
+    g.y0zfqqStealthGui = (g.y0zfqqStealthGui ~= false)
+    g.y0zfqqHideGlobals = (g.y0zfqqHideGlobals ~= false)
     g.OxideUsePlayerGui = true
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
