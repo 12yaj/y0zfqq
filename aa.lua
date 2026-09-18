@@ -40,7 +40,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 10 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 11 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -80,7 +80,7 @@ if typeof(getgenv) == "function" then
         windowOpts.AutoLoad = true
     end
 end
-local Window = Library:CreateWindow(windowOpts)
+local Window -- BAC-1519: CreateWindow inject'te GUI aciyordu; Sag Ctrl'de acilir
 
 do
     local g = oxideEnvEarly()
@@ -91,7 +91,7 @@ do
         _G.y0zfqqStealAnEgg = HUB
     end
 end
-print("[y0zfqq] aa build", HUB.build)
+print("[y0zfqq] aa build", HUB.build, "- GUI yok, menu: Sag Ctrl")
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
@@ -856,6 +856,9 @@ end
 -- CLEAN ROAD & FLIGHT PATH NAVIGATION (Anti-Trap & Zero Kick Engine)
 -- ==============================================================================
 local function InitHubFeatures()
+    if not Window then
+        Window = Library:CreateWindow(windowOpts)
+    end
 
 local MAIN_ROAD_Z = -364.5
 
@@ -3816,7 +3819,30 @@ task.delay(1.4, function()
 end)
 
 end -- InitHubFeatures
-InitHubFeatures()
+
+HUB.booted = false
+local function bootMenu()
+    if HUB.booted or HUB.dead then return end
+    HUB.booted = true
+    print("[y0zfqq] menu aciliyor (Sag Ctrl)")
+    InitHubFeatures()
+end
+
+do
+    local g = oxideEnv()
+    if g.y0zfqqOpenMenuNow == true then
+        bootMenu()
+    else
+        track(UserInputService.InputBegan:Connect(function(input, gp)
+            if HUB.dead or HUB.booted then return end
+            if gp then return end
+            if input.KeyCode == Enum.KeyCode.RightControl then
+                bootMenu()
+            end
+        end))
+        print("[y0zfqq] inject idle. 20sn kick yoksa Sag Ctrl ile menu ac.")
+    end
+end
 
 -- ==============================================================================
 -- HUB CLEANUP & UNLOAD HANDLER
@@ -3833,8 +3859,8 @@ HUB.Unload = function()
     for _, h in ipairs(HUB.highlights) do pcall(function() h:Destroy() end) end
     HUB.highlights = {}
 
-    stopFly()
-    SetFullbright(false)
+    pcall(function() stopFly() end)
+    pcall(function() SetFullbright(false) end)
 
     local hum = findHum()
     if hum then
@@ -3853,5 +3879,5 @@ HUB.Unload = function()
 end
 
 task.defer(function()
-    Notify("y0zfqq", "build " .. tostring(HUB.build) .. " | idle inject | hicbir ozellik acik degil", "Info", 5)
+    print("[y0zfqq] build", HUB.build, "hazir — menu icin Sag Ctrl (GUI simdi yok)")
 end)

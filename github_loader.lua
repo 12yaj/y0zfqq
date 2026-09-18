@@ -82,7 +82,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=10&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=11&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -129,10 +129,10 @@ if not hubSrc then
 end
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 print("[y0zfqq HTTP] aa.lua GitHub build:", tostring(hubBuild))
-if not hubBuild or hubBuild < 10 then
+if not hubBuild or hubBuild < 11 then
     bootErr(
         "GitHub'daki aa.lua ESKI (build " .. tostring(hubBuild) .. ").\n"
-        .. "Beklenen: build 10+\n\n"
+        .. "Beklenen: build 11+\n\n"
         .. "https://github.com/12yaj/y0zfqq  uzerinden aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua, y0zfqq_bootstrap.lua dosyalarini REPLACE et.\n"
         .. "Sonra cache kirarak tekrar dene:\n"
         .. "loadstring(game:HttpGet('https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?'..os.time()))()"
@@ -186,4 +186,4 @@ if not runHub then bootErr("aa derleme: " .. tostring(compileHub)); return end
 local okH, runErr = pcall(runHub)
 if not okH then bootErr("aa calismadi:\n" .. tostring(runErr)); return end
 
-print("[y0zfqq HTTP] Yuklendi. Menu: Sag Ctrl / PlayerGui")
+print("[y0zfqq HTTP] Yuklendi. GUI yok — 20sn bekle, sonra Sag Ctrl")
