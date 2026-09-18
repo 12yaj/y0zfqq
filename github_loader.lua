@@ -82,7 +82,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=13&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=14&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -117,10 +117,10 @@ if not hubSrc then
 end
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 print("[y0zfqq HTTP] aa.lua GitHub build:", tostring(hubBuild))
-if not hubBuild or hubBuild < 13 then
+if not hubBuild or hubBuild < 14 then
     bootErr(
         "GitHub'daki aa.lua ESKI (build " .. tostring(hubBuild) .. ").\n"
-        .. "Beklenen: build 13+\n\n"
+        .. "Beklenen: build 14+\n\n"
         .. "https://github.com/12yaj/y0zfqq  uzerinden aa_idle.lua, aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua, y0zfqq_bootstrap.lua REPLACE et.\n"
         .. "Sonra cache kirarak tekrar dene:\n"
         .. "loadstring(game:HttpGet('https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?'..os.time()))()"
@@ -170,4 +170,4 @@ if not runIdle then bootErr("aa_idle derleme: " .. tostring(compileIdle)); retur
 local okI, runErr = pcall(runIdle)
 if not okI then bootErr("aa_idle calismadi:\n" .. tostring(runErr)); return end
 
-print("[y0zfqq HTTP] Idle inject OK — Libary/aa yuklenmedi. 30sn bekle, Sag Ctrl")
+print("[y0zfqq HTTP] Idle inject OK — 30sn bekle, menu: Insert veya chat .y0z (Sag Ctrl kullanma)")

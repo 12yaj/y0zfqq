@@ -1,15 +1,32 @@
---[[ y0zfqq idle inject — Libary + aa.lua yuklenmez; BAC idle kick (4512) azaltir ]]
+--[[ y0zfqq idle inject — ikinci loadstring sadece menu tusunda (BAC-3511: Sag Ctrl risk) ]]
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-local IDLE_BUILD = 13
+local IDLE_BUILD = 14
 
 local function env()
     if typeof(getgenv) == "function" then return getgenv() end
     return _G
+end
+
+local function resolveMenuKey()
+    local g = env()
+    local k = g.y0zfqqMenuKey or g.OxideMenuKey
+    if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then
+        return k
+    end
+    return Enum.KeyCode.Insert
+end
+
+local function menuKeyLabel()
+    local k = resolveMenuKey()
+    if k == Enum.KeyCode.Insert then return "Insert" end
+    if k == Enum.KeyCode.Home then return "Home" end
+    if k == Enum.KeyCode.F8 then return "F8" end
+    return tostring(k.Name or k)
 end
 
 local HUB = { conns = {}, dead = false, build = IDLE_BUILD, idle = true }
@@ -76,14 +93,29 @@ local function readLocal(paths)
     return nil
 end
 
+local function stashLibrary(lib)
+    local g = env()
+    g.__y0zfqqLib = lib
+    if g.y0zfqqHideGlobals == false or g.OxideHideGlobals == false then
+        _G.y0zfqqLib = lib
+        _G.OxideLib = lib
+    else
+        pcall(function()
+            if _G.OxideLib then _G.OxideLib = nil end
+            if _G.y0zfqqLib then _G.y0zfqqLib = nil end
+        end)
+    end
+end
+
 local function bootFullHub()
     if booted or loading or HUB.dead then return end
     loading = true
+
     local gPre = env()
-    local preGrace = tonumber(gPre.y0zfqqHubLoadGraceSec) or 12
-    preGrace = math.clamp(preGrace, 0, 60)
+    local preGrace = tonumber(gPre.y0zfqqHubLoadGraceSec) or 20
+    preGrace = math.clamp(preGrace, 0, 90)
     if preGrace > 0 then
-        print("[y0zfqq] Sag Ctrl: ", preGrace, "sn bekle, sonra Libary+aa (BAC-5516)")
+        print("[y0zfqq] menu tusundan sonra", preGrace, "sn, sonra Libary (BAC-3511)")
         task.wait(preGrace)
     end
     if HUB.dead then loading = false return end
@@ -105,24 +137,6 @@ local function bootFullHub()
         return
     end
 
-    local hubSrc = readLocal({ "aa.lua", "selams/aa.lua" })
-    if not hubSrc then
-        local okHub
-        okHub, hubSrc = pcall(httpGet, base .. "aa.lua?v=" .. IDLE_BUILD .. "&t=" .. t)
-        if not okHub or type(hubSrc) ~= "string" or #hubSrc < 500 then
-            warn("[y0zfqq] aa.lua indirilemedi")
-            loading = false
-            return
-        end
-    end
-
-    local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-    if not hubBuild or hubBuild < 13 then
-        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 13+ yukle.")
-        loading = false
-        return
-    end
-
     booted = true
     HUB.Unload()
 
@@ -130,22 +144,42 @@ local function bootFullHub()
     if not runLib then
         warn("[y0zfqq] Libary derleme: " .. tostring(errL))
         loading = false
+        booted = false
         return
     end
     local okL, lib = pcall(runLib)
     if not okL or type(lib) ~= "table" or type(lib.CreateWindow) ~= "function" then
         warn("[y0zfqq] Libary calismadi: " .. tostring(lib))
         loading = false
+        booted = false
         return
     end
-    _G.y0zfqqLib = lib
-    _G.OxideLib = lib
+    stashLibrary(lib)
 
-    local hubCode = "local Library = _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
-    local runHub, errH = loadstring(hubCode, "aa.lua@idle")
-    if not runHub then
-        warn("[y0zfqq] aa derleme: " .. tostring(errH))
+    local between = tonumber(gPre.y0zfqqHubSplitGraceSec) or 15
+    between = math.clamp(between, 0, 60)
+    if between > 0 then
+        print("[y0zfqq] Libary OK —", between, "sn sonra aa.lua")
+        task.wait(between)
+    end
+
+    local hubSrc = readLocal({ "aa.lua", "selams/aa.lua" })
+    if not hubSrc then
+        local okHub
+        okHub, hubSrc = pcall(httpGet, base .. "aa.lua?v=" .. IDLE_BUILD .. "&t=" .. t)
+        if not okHub or type(hubSrc) ~= "string" or #hubSrc < 500 then
+            warn("[y0zfqq] aa.lua indirilemedi")
+            loading = false
+            booted = false
+            return
+        end
+    end
+
+    local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
+    if not hubBuild or hubBuild < 14 then
+        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 14+ yukle.")
         loading = false
+        booted = false
         return
     end
 
@@ -155,7 +189,16 @@ local function bootFullHub()
     g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
     g.y0zfqqOpenMenuNow = false
     g.y0zfqqOpenMenuAfterLoad = true
-    g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 18
+    g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 20
+
+    local hubCode = "local Library = (getgenv and getgenv().__y0zfqqLib) or _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
+    local runHub, errH = loadstring(hubCode, "aa.lua@idle")
+    if not runHub then
+        warn("[y0zfqq] aa derleme: " .. tostring(errH))
+        loading = false
+        booted = false
+        return
+    end
 
     local okH, runErr = pcall(runHub)
     loading = false
@@ -165,20 +208,34 @@ local function bootFullHub()
     end
 end
 
-print("[y0zfqq] idle build", IDLE_BUILD, "— inject hafif. GUI yok; 30sn bekle, Sag Ctrl")
+local keyName = menuKeyLabel()
+print("[y0zfqq] idle build", IDLE_BUILD, "— GUI yok. 30sn bekle, menu:", keyName, "veya chat .y0z")
+
+local function bindMenuTriggers()
+    local menuKey = resolveMenuKey()
+    track(UserInputService.InputBegan:Connect(function(input, gp)
+        if HUB.dead or booted or loading then return end
+        if gp then return end
+        if input.KeyCode == menuKey then
+            task.spawn(bootFullHub)
+        end
+    end))
+
+    track(LP.Chatted:Connect(function(msg)
+        if HUB.dead or booted or loading then return end
+        local m = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if m == ".y0z" or m == ".y0zfqq" or m == "/y0z" then
+            task.spawn(bootFullHub)
+        end
+    end))
+end
 
 do
     local g = env()
     if g.y0zfqqOpenMenuNow == true then
         bootFullHub()
     else
-        track(UserInputService.InputBegan:Connect(function(input, gp)
-            if HUB.dead or booted then return end
-            if gp then return end
-            if input.KeyCode == Enum.KeyCode.RightControl then
-                bootFullHub()
-            end
-        end))
-        print("[y0zfqq] kick yoksa Sag Ctrl ile menu (Libary+aa o zaman yuklenir)")
+        bindMenuTriggers()
+        print("[y0zfqq] Sag Ctrl KULLANMA (BAC-3511). Tus:", keyName, "| chat: .y0z")
     end
 end

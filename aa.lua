@@ -2,7 +2,11 @@
 --     "local Library = _G.OxideLib" above this line instead. ===
 -- ==============================================================================
 if not Library then
-    Library = _G.y0zfqqLib or _G.OxideLib
+    if typeof(getgenv) == "function" then
+        local g = getgenv()
+        Library = g.__y0zfqqLib or g.y0zfqqLib
+    end
+    Library = Library or _G.y0zfqqLib or _G.OxideLib
 end
 if not Library or type(Library.CreateWindow) ~= "function" then
     error("[y0zfqq] Library bulunamadi. PC: loadstring(readfile('b.lua'))() veya github_loader.")
@@ -40,7 +44,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 13 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 14 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -91,7 +95,13 @@ do
         _G.y0zfqqStealAnEgg = HUB
     end
 end
-print("[y0zfqq] aa build", HUB.build, "- remote egg, EggState yok, menu: Sag Ctrl")
+local function resolveMenuKeyCode()
+    local g = oxideEnvEarly()
+    local k = g.y0zfqqMenuKey or g.OxideMenuKey
+    if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then return k end
+    return Enum.KeyCode.Insert
+end
+print("[y0zfqq] aa build", HUB.build, "- remote egg | UI toggle: Insert (Sag Ctrl kullanma)")
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
@@ -3791,7 +3801,7 @@ if HAS_CONFIG then
 end
 
 ConfigSub:AddKeybind({
-    Name = "Toggle UI Keybind", Default = Enum.KeyCode.RightControl, Flag = "ui_toggle_key",
+    Name = "Toggle UI Keybind", Default = resolveMenuKeyCode(), Flag = "ui_toggle_key",
     OnPress = function()
         Window:Toggle()
     end
@@ -3862,7 +3872,7 @@ HUB.booted = false
 local function bootMenu()
     if HUB.booted or HUB.dead then return end
     HUB.booted = true
-    print("[y0zfqq] menu aciliyor (Sag Ctrl)")
+    print("[y0zfqq] menu aciliyor")
     InitHubFeatures()
 end
 
@@ -3876,11 +3886,11 @@ do
         track(UserInputService.InputBegan:Connect(function(input, gp)
             if HUB.dead or HUB.booted then return end
             if gp then return end
-            if input.KeyCode == Enum.KeyCode.RightControl then
+            if input.KeyCode == resolveMenuKeyCode() then
                 bootMenu()
             end
         end))
-        print("[y0zfqq] inject idle. 20sn kick yoksa Sag Ctrl ile menu ac.")
+        print("[y0zfqq] inject idle. Menu: Insert veya .y0z (Sag Ctrl = BAC-3511)")
     end
 end
 
@@ -3919,5 +3929,5 @@ HUB.Unload = function()
 end
 
 task.defer(function()
-    print("[y0zfqq] build", HUB.build, "hazir — menu icin Sag Ctrl (GUI simdi yok)")
+    print("[y0zfqq] build", HUB.build, "hazir — Insert / .y0z (GUI henuz yok)")
 end)

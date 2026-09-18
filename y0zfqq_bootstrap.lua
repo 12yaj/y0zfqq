@@ -23,6 +23,9 @@ return function(g, playerGui)
     g.OxideRemoteOnly = (g.OxideRemoteOnly ~= false)
     g.y0zfqqAllowClientEggApi = (g.y0zfqqAllowClientEggApi == true)
     g.OxideAllowClientEggApi = (g.OxideAllowClientEggApi == true)
+    if g.y0zfqqMenuKey == nil and g.OxideMenuKey == nil then
+        g.y0zfqqMenuKey = Enum.KeyCode.Insert
+    end
     g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
     g.OxideDisableEvidenceScrub = true
     g.OxideAutoGuard = (g.OxideAutoGuard == true)
