@@ -182,7 +182,12 @@ end
 -- BAC-4512 = sunucu "cheating" kick; heavy GC kapali olsa bile telemetry spoof acik kalmali
 local function shouldUseBacSpoof()
     local g = oxideEnv()
-    if g.OxideDisableBacSpoof == true then return false end
+    if g.OxideDisableBacSpoof == true or g.y0zfqqDisableBacSpoof == true then
+        return false
+    end
+    if g.y0zfqqBacSpoof == false or g.OxideBacSpoof == false then
+        return false
+    end
     return true
 end
 
@@ -198,6 +203,17 @@ end
 local function useRemoteOnlyEggPipeline()
     local g = oxideEnv()
     if g.y0zfqqRemoteOnly == false or g.OxideRemoteOnly == false then
+        return false
+    end
+    return true
+end
+
+local function shouldRunEvidenceScrub()
+    local g = oxideEnv()
+    if g.y0zfqqDisableEvidenceScrub == true or g.OxideDisableEvidenceScrub == true then
+        return false
+    end
+    if useRemoteOnlyEggPipeline() then
         return false
     end
     return true
@@ -564,6 +580,7 @@ end)
 -- froze and the watchdog killed it right at "execute". Scans are now sliced, and
 -- the retry backs off from 5 s up to 30 s. Once the table is found, the cheap
 -- per-tick scrub still runs at 0.2 s exactly as before.
+if shouldRunEvidenceScrub() then
 task.spawn(function()
     if not (getgc or (debug and debug.getgc)) then return end
     local st = nil
@@ -639,28 +656,83 @@ task.spawn(function()
         task.wait(0.2)
     end
 end)
+end
 
 -- ==============================================================================
 -- GAME NETWORKING & MODULE INTEGRATION
 -- ==============================================================================
 local EggState, PlotState, AreasData, RarityData, AssetsData, EggToolDisplay, AreaEggSlotIdentity
-pcall(function() EggState = require(RS.Client.EggState) end)
-pcall(function() PlotState = require(RS.Client.PlotState) end)
 pcall(function() AreasData = require(RS.Data.Areas) end)
 pcall(function() RarityData = require(RS.Data.Rarity) end)
 pcall(function() AssetsData = require(RS.Data.Assets) end)
 local SaveModule
-pcall(function() SaveModule = require(RS.Shared.Save) end)
-pcall(function() EggToolDisplay = require(RS.Shared.Eggs.EggToolDisplay) end)
-pcall(function()
-    AreaEggSlotIdentity = (RS:FindFirstChild("Shared") and RS.Shared:FindFirstChild("Util") and require(RS.Shared.Util.AreaEggSlotIdentity))
-        or (RS:FindFirstChild("Util") and require(RS.Util.AreaEggSlotIdentity))
-        or (RS:FindFirstChild("Shared") and RS.Shared:FindFirstChild("Utils") and require(RS.Shared.Utils.AreaEggSlotIdentity))
-end)
+if allowClientEggCalls() then
+    pcall(function() EggState = require(RS.Client.EggState) end)
+    pcall(function() PlotState = require(RS.Client.PlotState) end)
+    pcall(function() SaveModule = require(RS.Shared.Save) end)
+    pcall(function() EggToolDisplay = require(RS.Shared.Eggs.EggToolDisplay) end)
+    pcall(function()
+        AreaEggSlotIdentity = (RS:FindFirstChild("Shared") and RS.Shared:FindFirstChild("Util") and require(RS.Shared.Util.AreaEggSlotIdentity))
+            or (RS:FindFirstChild("Util") and require(RS.Util.AreaEggSlotIdentity))
+            or (RS:FindFirstChild("Shared") and RS.Shared:FindFirstChild("Utils") and require(RS.Shared.Utils.AreaEggSlotIdentity))
+    end)
+end
 
 local function GetNetRemote(name)
     local net = RS:FindFirstChild("Packages") and RS.Packages:FindFirstChild("Networking")
     return net and net:FindFirstChild(name)
+end
+
+local eggSnapCache = { t = 0, data = nil }
+local EGG_SNAP_CACHE_SEC = 2.8
+
+local function FetchFieldEggSnapshot(forceRefresh)
+    if not forceRefresh and eggSnapCache.data and (os.clock() - eggSnapCache.t) < EGG_SNAP_CACHE_SEC then
+        return eggSnapCache.data
+    end
+    local syncRf = GetNetRemote("RF/EggWorld/AskFieldEggSync")
+        or GetNetRemote("RF/EggWorld/SyncFieldEggs")
+    if syncRf then
+        pcall(function()
+            if syncRf:IsA("RemoteFunction") then syncRf:InvokeServer()
+            else syncRf:FireServer() end
+        end)
+    end
+    local snapRf = GetNetRemote("RF/EggWorld/AskFieldEggSnapshot")
+    if snapRf and snapRf:IsA("RemoteFunction") then
+        local ok, snap = pcall(function() return snapRf:InvokeServer() end)
+        if ok and type(snap) == "table" and snap.Records then
+            eggSnapCache.data = snap
+            eggSnapCache.t = os.clock()
+            return snap
+        end
+    end
+    if allowClientEggCalls() and EggState and EggState.ReadFieldEggs then
+        local ok, snap = pcall(EggState.ReadFieldEggs)
+        if ok and type(snap) == "table" then
+            eggSnapCache.data = snap
+            eggSnapCache.t = os.clock()
+            return snap
+        end
+    end
+    return eggSnapCache.data
+end
+
+local function isEggToolInstance(t)
+    if not t or not t:IsA("Tool") then return false end
+    if EggToolDisplay and EggToolDisplay.IsEggTool then
+        local ok, yes = pcall(EggToolDisplay.IsEggTool, t)
+        if ok and yes then return true end
+    end
+    return t:GetAttribute("IsEgg") == true or t:GetAttribute("Uid") ~= nil
+end
+
+local function getEggToolUid(t)
+    if EggToolDisplay and EggToolDisplay.GetToolUid then
+        local ok, uid = pcall(EggToolDisplay.GetToolUid, t)
+        if ok and uid then return uid end
+    end
+    return t:GetAttribute("Uid") or t:GetAttribute("EggUid")
 end
 
 local function GetLocalSlot()
@@ -676,6 +748,16 @@ local function GetLocalPlotCenter()
     local pt = plotObj and plotObj.CenterPoint and (typeof(plotObj.CenterPoint) == "Vector3" and plotObj.CenterPoint or (plotObj.CenterPoint:IsA("BasePart") and plotObj.CenterPoint.Position))
     if pt then
         return Vector3.new(pt.X, math.max(pt.Y, 70.4), pt.Z), CFrame.new(pt.X, math.max(pt.Y, 70.4), pt.Z)
+    end
+    local plots = Workspace:FindFirstChild("Plots")
+    local slot = GetLocalSlot()
+    local plot = plots and plots:FindFirstChild(tostring(slot))
+    if plot then
+        local cp = plot:FindFirstChild("CenterPoint")
+        if cp and cp:IsA("BasePart") then
+            pt = cp.Position
+            return Vector3.new(pt.X, math.max(pt.Y, 70.4), pt.Z), CFrame.new(pt.X, math.max(pt.Y, 70.4), pt.Z)
+        end
     end
     return Vector3.new(464.7, 70.4, -364.0), CFrame.new(464.7, 70.4, -364.0)
 end
@@ -1249,9 +1331,8 @@ local function isBigEgg(record)
 end
 
 local function GetMatchingFieldEggs(areasFilter, raritiesFilter, mutationsFilter)
-    if not EggState or not EggState.ReadFieldEggs then return {} end
-    local ok, snapshot = pcall(EggState.ReadFieldEggs)
-    if not ok or not snapshot or not snapshot.Records then return {} end
+    local snapshot = FetchFieldEggSnapshot(true)
+    if not snapshot or not snapshot.Records then return {} end
 
     local matched = {}
     for _, record in ipairs(snapshot.Records) do
@@ -1389,22 +1470,27 @@ local function waitForSafeZoneDeliver(plotCenter, maxSec)
 end
 
 local function PlantAllCarriedEggsInPen()
-    local plotObj = PlotState and PlotState.ResolvePlot and PlotState.ResolvePlot()
-    local plotCenterPart = plotObj and plotObj.CenterPoint
-    local plotCenter = plotCenterPart and (plotCenterPart:IsA("BasePart") and plotCenterPart.Position or plotCenterPart)
-        or Vector3.new(464.7, 68.2, -364.0)
+    local plotCenter, _ = GetLocalPlotCenter()
+    local plotCenterPart = nil
+    local plots = Workspace:FindFirstChild("Plots")
+    local plot = plots and plots:FindFirstChild(tostring(GetLocalSlot()))
+    if plot then plotCenterPart = plot:FindFirstChild("CenterPoint") end
+    if PlotState and PlotState.ResolvePlot then
+        local plotObj = PlotState.ResolvePlot()
+        if plotObj and plotObj.CenterPoint then plotCenterPart = plotObj.CenterPoint end
+    end
     local placeRf = GetNetRemote("RF/EggWorld/AskPlaceEgg")
 
     local toolsToPlant = {}
     for _, t in ipairs(LP.Character:GetChildren()) do
-        if t:IsA("Tool") and EggToolDisplay and EggToolDisplay.IsEggTool and EggToolDisplay.IsEggTool(t) then
-            local uid = EggToolDisplay.GetToolUid(t)
+        if isEggToolInstance(t) then
+            local uid = getEggToolUid(t)
             if uid then table.insert(toolsToPlant, uid) end
         end
     end
     for _, t in ipairs(LP.Backpack:GetChildren()) do
-        if t:IsA("Tool") and EggToolDisplay and EggToolDisplay.IsEggTool and EggToolDisplay.IsEggTool(t) then
-            local uid = EggToolDisplay.GetToolUid(t)
+        if isEggToolInstance(t) then
+            local uid = getEggToolUid(t)
             if uid then table.insert(toolsToPlant, uid) end
         end
     end
@@ -1455,9 +1541,9 @@ local function StealSpecificEggRobust(targetItem)
     if not record or not record.Uid or not record.BoundsCFrame then return finishSteal(false) end
 
     -- Verify the egg is still present in the latest snapshot before traveling
-    if EggState and EggState.ReadFieldEggs then
-        local ok, snap = pcall(EggState.ReadFieldEggs)
-        if ok and snap and snap.Records then
+    do
+        local snap = FetchFieldEggSnapshot(true)
+        if snap and snap.Records then
             local stillThere = false
             for _, r in ipairs(snap.Records) do
                 if r.Uid == record.Uid and r.State == "Slot" then
@@ -1491,7 +1577,7 @@ local function StealSpecificEggRobust(targetItem)
 
     -- 2. Claim egg with instant stop & verification handshake
     local slotKey = nil
-    if AreaEggSlotIdentity and AreaEggSlotIdentity.LooksLikeFirstAreaUid and AreaEggSlotIdentity.LooksLikeFirstAreaUid(record.Uid) then
+    if allowClientEggCalls() and AreaEggSlotIdentity and AreaEggSlotIdentity.LooksLikeFirstAreaUid and AreaEggSlotIdentity.LooksLikeFirstAreaUid(record.Uid) then
         slotKey = AreaEggSlotIdentity.SlotKey(record.AreaId, record.NestId)
     end
 
@@ -2575,8 +2661,9 @@ track(RunService.RenderStepped:Connect(function()
     local activeBbKeys = {}
 
     -- Eggs ESP
-    if esp.eggs and EggState and EggState.ReadFieldEggs then
-        local ok, snap = pcall(EggState.ReadFieldEggs)
+    if esp.eggs then
+        local snap = FetchFieldEggSnapshot()
+        local ok = snap ~= nil
         if ok and snap and snap.Records then
             for _, egg in ipairs(snap.Records) do
                 if egg.State == "Slot" and egg.BoundsCFrame then
@@ -2865,7 +2952,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-5516: Auto Hatch/Plant KAPALI. Sadece Auto Steal + Kick-Safe + Tween Glide.\nArea sec → 6sn bekle. Plant sadece 'Auto Plant' acikken.",
+    Content = "BAC-10518: EggState yok (remote snapshot). Evidence scrub kapali.\nAuto Hatch/Plant/ESP kapali. Kick-Safe + Tween + Area sec.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3494,6 +3581,9 @@ end
 task.defer(function()
     local hookOk = (hookfunction or replaceclosure or hookfunc) ~= nil
     local bacOn = shouldUseBacSpoof() and hookOk
-    local msg = bacOn and "Hub yuklendi — BAC spoof aktif." or "Hub yuklendi — BAC spoof YOK (hook yok), kick riski!"
-    Notify("y0zfqq", msg, bacOn and "Success" or "Warning", 4)
+    local remoteEggs = GetNetRemote("RF/EggWorld/AskFieldEggSnapshot") ~= nil
+    local msg = "Remote egg: " .. (remoteEggs and "OK" or "YOK")
+        .. " | BAC: " .. (bacOn and "spoof" or "kapali")
+        .. " | EggState: " .. (allowClientEggCalls() and "acik" or "kapali")
+    Notify("y0zfqq", msg, (remoteEggs and bacOn) and "Success" or "Warning", 5)
 end)

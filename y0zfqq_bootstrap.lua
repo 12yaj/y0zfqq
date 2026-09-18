@@ -10,6 +10,8 @@ return function(g, playerGui)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
     g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)
     g.OxideRemoteOnly = (g.OxideRemoteOnly ~= false)
+    g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
+    g.OxideDisableEvidenceScrub = true
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
         Parent = playerGui,
