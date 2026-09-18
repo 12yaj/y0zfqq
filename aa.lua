@@ -19,10 +19,10 @@ do
     local prev = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 4 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 5 }
 _G.OxideStealAnEgg = HUB
 _G.y0zfqqStealAnEgg = HUB
-print("[y0zfqq] aa build", HUB.build, "(3517=BAC gecikmeli | build<4 eski dosya)")
+print("[y0zfqq] aa build", HUB.build, "(2513=BAC hook kapali | build<5 eski GitHub)")
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -101,8 +101,13 @@ local function InstallCarryPromptBoost()
     end)
 end
 
--- Anti-Robux Purchase Prompt Shield: immediately dismisses accidental Robux purchase prompts
+local function shouldShieldPurchasePrompt()
+    local g = oxideEnv()
+    return g.y0zfqqPurchaseShield == true or g.OxidePurchaseShield == true
+end
+
 pcall(function()
+    if not shouldShieldPurchasePrompt() then return end
     local coreGui = game:GetService("CoreGui")
     track(coreGui.ChildAdded:Connect(function(child)
         if child.Name == "PurchasePrompt" then
@@ -183,7 +188,7 @@ local function shouldSkipHeavyAC()
     return false
 end
 
--- BAC-3517: spoof kapali idle kick (telemetri). BAC-8512: erken hook — gecikmeli kurulum.
+-- BAC-2513: hookfunction tespiti (gecikmeli bile). BAC-3517: spoof kapali idle — sadece opt-in.
 local function shouldUseBacSpoof()
     local g = oxideEnv()
     if g.OxideDisableBacSpoof == true or g.y0zfqqDisableBacSpoof == true then
@@ -192,14 +197,10 @@ local function shouldUseBacSpoof()
     if g.y0zfqqBacSpoof == false or g.OxideBacSpoof == false then
         return false
     end
-    if g.OxideEnableBacSpoof == true or g.y0zfqqEnableBacSpoof == true then
-        return true
+    if g.OxideForcePC == true and g.y0zfqqEnableBacSpoof ~= true and g.OxideEnableBacSpoof ~= true then
+        return false
     end
-    -- Telefon/Oxide parity: heartbeat spoof gerekli (3517); GC bypass yine kapali
-    if g.OxidePhoneParity ~= false then
-        return true
-    end
-    return false
+    return g.OxideEnableBacSpoof == true or g.y0zfqqEnableBacSpoof == true
 end
 
 -- BAC-5516 / PlacedEggRenderer: client EggState.* cagrilari executor context'te patlar
@@ -2708,7 +2709,15 @@ local function createDrawingObject()
     return o
 end
 
-track(RunService.RenderStepped:Connect(function()
+local espRenderConn = nil
+local function stopEspRenderLoop()
+    if not espRenderConn then return end
+    pcall(function() espRenderConn:Disconnect() end)
+    espRenderConn = nil
+end
+local function ensureEspRenderLoop()
+    if espRenderConn then return end
+    espRenderConn = track(RunService.RenderStepped:Connect(function()
     if HUB.dead or not esp.enabled then
         for _, obj in pairs(trackedEspObjects) do
             if obj.name then obj.name.Visible = false end
@@ -2860,6 +2869,7 @@ track(RunService.RenderStepped:Connect(function()
         end
     end
 end))
+end
 
 -- Fullbright
 local fullbrightEnabled = false
@@ -3017,7 +3027,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-3517: 14sn bekle (BAC telemetry). Trap/KB kapali.\nKick-Safe + Tween Glide + Area. Auto Steal ~6sn grace.",
+    Content = "BAC-2513: PC'de BAC hook KAPALI (build 5). Trap/KB kapali.\nKick-Safe + Tween Glide + Area. 3517 olursa spoof opt-in.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3126,6 +3136,7 @@ EggEspSub:AddToggle({
     Name = "Egg ESP Enabled", Default = false, Flag = "esp_eggs_enabled",
     Callback = safeCallback(function(v)
         esp.enabled = v
+        if v then ensureEspRenderLoop() else stopEspRenderLoop() end
         Notify("Egg ESP", v and "Enabled" or "Disabled", v and "Success" or "Error")
     end)
 })
@@ -3659,7 +3670,7 @@ task.defer(function()
     local remoteEggs = GetNetRemote("RF/EggWorld/AskFieldEggSnapshot") ~= nil
     local msg = "build " .. tostring(HUB.build)
         .. " | Remote egg: " .. (remoteEggs and "OK" or "YOK")
-        .. " | BAC: " .. (bacPlan and "gecikmeli" or "kapali")
+        .. " | BAC hook: " .. (bacPlan and "opt-in" or "kapali")
         .. " | EggState: " .. (allowClientEggCalls() and "acik" or "kapali")
     Notify("y0zfqq", msg, remoteEggs and "Success" or "Warning", 5)
 end)

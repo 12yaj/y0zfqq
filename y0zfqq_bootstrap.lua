@@ -5,8 +5,9 @@ return function(g, playerGui)
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
     g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-    -- PhoneParity acikken aa.lua BAC spoof'u gecikmeli kurar (3517 onleme). Kapat: y0zfqqDisableBacSpoof = true
-    g.OxideBacSpoofDelay = g.OxideBacSpoofDelay or 14
+    -- PC: BAC hook kapali (2513). Idle kick (3517) icin execute ONCE: getgenv().y0zfqqEnableBacSpoof = true
+    g.y0zfqqDisableBacSpoof = (g.y0zfqqDisableBacSpoof == true)
+    g.OxideBacSpoofDelay = g.OxideBacSpoofDelay or 18
     g.y0zfqqBacSpoofDelay = g.y0zfqqBacSpoofDelay or g.OxideBacSpoofDelay
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
