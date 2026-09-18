@@ -19,9 +19,10 @@ do
     local prev = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 3 }
 _G.OxideStealAnEgg = HUB
 _G.y0zfqqStealAnEgg = HUB
+print("[y0zfqq] aa build", HUB.build, "(200-local fix — eski build kick/derleme verir)")
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -73,7 +74,6 @@ end
 -- ==============================================================================
 local Players             = game:GetService("Players")
 local RS                  = game:GetService("ReplicatedStorage")
-local ReplicatedStorage   = RS
 local RunService          = game:GetService("RunService")
 local UserInputService    = game:GetService("UserInputService")
 local Workspace           = game:GetService("Workspace")
@@ -398,10 +398,6 @@ local function findHRP()
     local ch = LP.Character
     return ch and (ch:FindFirstChild("HumanoidRootPart") or ch.PrimaryPart or ch:FindFirstChildWhichIsA("BasePart"))
 end
-
-local GetCharacter = findChar
-local GetHumanoid  = findHum
-local GetHRP       = findHRP
 
 local function GetRootCFrame()
     local hrp = findHRP()
@@ -786,6 +782,8 @@ end
 -- ==============================================================================
 -- CLEAN ROAD & FLIGHT PATH NAVIGATION (Anti-Trap & Zero Kick Engine)
 -- ==============================================================================
+local function InitHubFeatures()
+
 local MAIN_ROAD_Z = -364.5
 
 local function defaultStealMethod()
@@ -2969,9 +2967,7 @@ local function SetAntiAFK(v)
     end
 end
 
--- ==============================================================================
--- UI CREATION - MAIN TABS (ayri fonksiyon: Luau 200 local limiti)
--- ==============================================================================
+-- UI (Luau 200 local / fonksiyon — InitHubFeatures icinde)
 local function CreateHubUI()
 local EggsTab     = Window:AddTab({ Name = "Eggs", Subtitle = "Steal, hatch & plant", Icon = "crown" })
 local BaseTab     = Window:AddTab({ Name = "Base", Subtitle = "Homestead & training", Icon = "bolt" })
@@ -3481,28 +3477,31 @@ PlotTpSub:AddButton({
 
 -- SubTab: Player Travel
 local selectedPlayerName = nil
-local function GetPlayerList()
-    local names = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then table.insert(names, p.Name) end
-    end
-    table.sort(names)
-    if #names == 0 then names = { "(no other players)" } end
-    return names
-end
-
 local playerDropdown = PlayerTpSub:AddDropdown({
-    Name = "Select Player", Options = GetPlayerList(), Items = GetPlayerList(), Default = nil, Flag = "tele_plr",
+    Name = "Select Player", Options = {}, Items = {}, Default = nil, Flag = "tele_plr",
     Callback = function(v) selectedPlayerName = v end
 })
 
-PlayerTpSub:AddButton({
-    Name = "Refresh Player List",
-    Callback = function()
-        playerDropdown:SetOptions(GetPlayerList())
-        Notify("Players", "Refreshed player list", "Info")
+do
+    local function refreshPlayerList()
+        local names = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP then table.insert(names, p.Name) end
+        end
+        table.sort(names)
+        if #names == 0 then names = { "(no other players)" } end
+        playerDropdown:SetOptions(names)
+        return names
     end
-})
+    refreshPlayerList()
+    PlayerTpSub:AddButton({
+        Name = "Refresh Player List",
+        Callback = function()
+            refreshPlayerList()
+            Notify("Players", "Refreshed player list", "Info")
+        end
+    })
+end
 PlayerTpSub:AddButton({
     Name = "Travel to Player", Primary = true,
     Callback = safeCallback(function()
@@ -3588,6 +3587,9 @@ end
 
 end -- CreateHubUI
 CreateHubUI()
+
+end -- InitHubFeatures
+InitHubFeatures()
 
 -- ==============================================================================
 -- HUB CLEANUP & UNLOAD HANDLER
