@@ -179,6 +179,30 @@ local function shouldSkipHeavyAC()
     return false
 end
 
+-- BAC-4512 = sunucu "cheating" kick; heavy GC kapali olsa bile telemetry spoof acik kalmali
+local function shouldUseBacSpoof()
+    local g = oxideEnv()
+    if g.OxideDisableBacSpoof == true then return false end
+    return true
+end
+
+-- BAC-5516 / PlacedEggRenderer: client EggState.* cagrilari executor context'te patlar
+local function allowClientEggCalls()
+    local g = oxideEnv()
+    if g.y0zfqqAllowClientEggApi == true or g.OxideAllowClientEggApi == true then
+        return true
+    end
+    return false
+end
+
+local function useRemoteOnlyEggPipeline()
+    local g = oxideEnv()
+    if g.y0zfqqRemoteOnly == false or g.OxideRemoteOnly == false then
+        return false
+    end
+    return true
+end
+
 if not shouldSkipHeavyAC() then
     pcall(bypassClientDetections)
 end
@@ -483,7 +507,7 @@ end
 
 local HookFn = hookfunction or replaceclosure or hookfunc or detour_function
 
-if anyRemote and HookFn and not shouldSkipHeavyAC() then
+if anyRemote and HookFn and shouldUseBacSpoof() then
     local oldFire
     oldFire = HookFn(anyRemote.FireServer, function(self, ...)
         local args = table.pack(...)
@@ -1046,6 +1070,7 @@ local MUTATION_FILTERS = {
 -- ==============================================================================
 local autoStealEnabled          = false
 local stealGraceUntil           = 0
+local stealInProgress           = false
 local rareEggHunter             = true
 local stealBigEggsOnly          = false
 local selectedStealRarities     = {}
@@ -1323,9 +1348,52 @@ local function isPlayerCarryingEgg()
     return false
 end
 
+local function tryEquipEggTool(uid)
+    if not uid then return end
+    local wearRf = GetNetRemote("RF/EggWorld/AskWearTool")
+    if wearRf then
+        pcall(function() wearRf:InvokeServer(uid) end)
+    end
+    task.wait(0.15)
+end
+
+local function tryDeliverHeldFieldEgg(plotCenter)
+    if not isPlayerCarryingEgg() then return end
+    if not plotCenter then return end
+    for _, d in ipairs(Workspace:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and d.Enabled then
+            local n = d.Name:lower()
+            if n:find("deliver") or n:find("deposit") or (n:find("drop") and not n:find("held")) then
+                local p = d.Parent
+                if p and p:IsA("Attachment") then p = p.Parent end
+                if p and (p.Position - plotCenter).Magnitude < 55 then
+                    d.HoldDuration = 0
+                    pcall(function() fireproximityprompt(d) end)
+                    task.wait(0.2)
+                    if not isPlayerCarryingEgg() then return end
+                end
+            end
+        end
+    end
+end
+
+local function waitForSafeZoneDeliver(plotCenter, maxSec)
+    maxSec = maxSec or 6
+    local t0 = os.clock()
+    while os.clock() - t0 < maxSec and not HUB.dead do
+        if not isPlayerCarryingEgg() then return true end
+        tryDeliverHeldFieldEgg(plotCenter)
+        task.wait(0.3)
+    end
+    return not isPlayerCarryingEgg()
+end
+
 local function PlantAllCarriedEggsInPen()
     local plotObj = PlotState and PlotState.ResolvePlot and PlotState.ResolvePlot()
-    local plotCenter = plotObj and plotObj.CenterPoint and plotObj.CenterPoint.Position or Vector3.new(464.7, 68.2, -364.0)
+    local plotCenterPart = plotObj and plotObj.CenterPoint
+    local plotCenter = plotCenterPart and (plotCenterPart:IsA("BasePart") and plotCenterPart.Position or plotCenterPart)
+        or Vector3.new(464.7, 68.2, -364.0)
+    local placeRf = GetNetRemote("RF/EggWorld/AskPlaceEgg")
 
     local toolsToPlant = {}
     for _, t in ipairs(LP.Character:GetChildren()) do
@@ -1341,29 +1409,50 @@ local function PlantAllCarriedEggsInPen()
         end
     end
 
+    if #toolsToPlant == 0 and isPlayerCarryingEgg() then
+        tryDeliverHeldFieldEgg(plotCenter)
+        return 0
+    end
+
     local plantedCount = 0
     for _, eggUid in ipairs(toolsToPlant) do
+        tryEquipEggTool(eggUid)
         for attempt = 1, 3 do
-            local offset = CFrame.new(math.random(-6, 6), 0, math.random(-6, 6))
+            local localCf = CFrame.new(math.random(-5, 5), 0, math.random(-5, 5))
+            if plotCenterPart and plotCenterPart:IsA("BasePart") then
+                local world = plotCenterPart.CFrame * localCf
+                localCf = plotCenterPart.CFrame:ToObjectSpace(world)
+            end
             local ok, res = pcall(function()
-                if EggState and EggState.PlantEgg then
-                    return EggState.PlantEgg(eggUid, offset)
+                if allowClientEggCalls() and EggState and EggState.PlantEgg then
+                    return EggState.PlantEgg(eggUid, localCf) == true
+                end
+                if placeRf then
+                    return placeRf:InvokeServer(eggUid, localCf) == true
                 end
                 return false
             end)
             if ok and res then
                 plantedCount = plantedCount + 1
+                task.wait(0.28)
                 break
             end
-            task.wait(0.1)
+            task.wait(0.15)
         end
     end
     return plantedCount
 end
 
 local function StealSpecificEggRobust(targetItem)
+    if stealInProgress or HUB.dead then return false end
+    stealInProgress = true
+    local function finishSteal(ok)
+        stealInProgress = false
+        return ok
+    end
+
     local record = targetItem.record or targetItem
-    if not record or not record.Uid or not record.BoundsCFrame then return false end
+    if not record or not record.Uid or not record.BoundsCFrame then return finishSteal(false) end
 
     -- Verify the egg is still present in the latest snapshot before traveling
     if EggState and EggState.ReadFieldEggs then
@@ -1378,14 +1467,14 @@ local function StealSpecificEggRobust(targetItem)
                 end
             end
             if not stillThere then
-                return false
+                return finishSteal(false)
             end
         end
     end
 
     local hrp = findHRP()
     local hum = findHum()
-    if not hrp then return false end
+    if not hrp then return finishSteal(false) end
 
     EnsureSavedReturnPosition()
 
@@ -1411,11 +1500,13 @@ local function StealSpecificEggRobust(targetItem)
     if carryRemote then
         pcall(function() carryRemote:InvokeServer({ Uid = record.Uid, FirstAreaSlotKey = slotKey }) end)
     end
-    pcall(function()
-        if EggState and EggState.CarryFieldEgg then
-            EggState.CarryFieldEgg(record.Uid, slotKey)
-        end
-    end)
+    if allowClientEggCalls() then
+        pcall(function()
+            if EggState and EggState.CarryFieldEgg then
+                EggState.CarryFieldEgg(record.Uid, slotKey)
+            end
+        end)
+    end
 
     local prompt = nil
     for _, d in ipairs(Workspace:GetDescendants()) do
@@ -1452,11 +1543,13 @@ local function StealSpecificEggRobust(targetItem)
             carried = true
             break
         end
-        pcall(function()
-            if EggState and EggState.CarryFieldEgg then
-                EggState.CarryFieldEgg(record.Uid, slotKey)
-            end
-        end)
+        if allowClientEggCalls() then
+            pcall(function()
+                if EggState and EggState.CarryFieldEgg then
+                    EggState.CarryFieldEgg(record.Uid, slotKey)
+                end
+            end)
+        end
         if prompt then
             prompt.HoldDuration = 0
             pcall(function() fireproximityprompt(prompt) end)
@@ -1466,12 +1559,12 @@ local function StealSpecificEggRobust(targetItem)
 
     if not carried then
         ignoredEggs[record.Uid] = os.clock()
-        return false
+        return finishSteal(false)
     end
 
     -- 2.5 Guard-hit double pickup trick (user method: pickup -> get hit by guard -> pickup again -> glide back to avoid deliver error)
     do
-        local guardHitEnabled = not kickSafeMode -- guard trick can spike AC; off in kick-safe mode
+        local guardHitEnabled = allowClientEggCalls() and not kickSafeMode
         if guardHitEnabled and carried then
             local tGuardStart = os.clock()
             local startHealth = 100
@@ -1598,9 +1691,11 @@ local function StealSpecificEggRobust(targetItem)
                 pcall(function()
                     if carryRemote then carryRemote:InvokeServer({ Uid = record.Uid, FirstAreaSlotKey = slotKey }) end
                 end)
-                pcall(function()
-                    if EggState and EggState.CarryFieldEgg then EggState.CarryFieldEgg(record.Uid, slotKey) end
-                end)
+                if allowClientEggCalls() then
+                    pcall(function()
+                        if EggState and EggState.CarryFieldEgg then EggState.CarryFieldEgg(record.Uid, slotKey) end
+                    end)
+                end
                 task.wait(0.08)
                 local prompt2 = nil
                 for _, d in ipairs(Workspace:GetDescendants()) do
@@ -1640,9 +1735,11 @@ local function StealSpecificEggRobust(targetItem)
                 local tPickup2 = os.clock()
                 while os.clock() - tPickup2 < 2.2 and not HUB.dead do
                     if isPlayerCarryingEgg() then carried = true break end
-                    pcall(function()
-                        if EggState and EggState.CarryFieldEgg then EggState.CarryFieldEgg(record.Uid, slotKey) end
-                    end)
+                    if allowClientEggCalls() then
+                        pcall(function()
+                            if EggState and EggState.CarryFieldEgg then EggState.CarryFieldEgg(record.Uid, slotKey) end
+                        end)
+                    end
                     if prompt2 then pcall(function() fireproximityprompt(prompt2) end) end
                     task.wait(0.06)
                 end
@@ -1672,19 +1769,17 @@ local function StealSpecificEggRobust(targetItem)
 
     -- 3. Return to base: fly to road line, align on Z, vertical drop (no treadmill ground path)
     if not isPlayerCarryingEgg() then
-        return false
+        return finishSteal(false)
     end
     TravelReturnLineDrop(safePlotCenter, speed)
     task.wait(0.12)
 
-    -- Settle in the base pen and wait for delivery to confirm
-    local tDeliver = os.clock()
-    while os.clock() - tDeliver < 1.5 and isPlayerCarryingEgg() and not HUB.dead do
-        task.wait(0.08)
-    end
+    waitForSafeZoneDeliver(safePlotCenter, 7)
 
-    -- 4. Plant all carried egg tools in the base pen
-    PlantAllCarriedEggsInPen()
+    if autoPlantEnabled then
+        task.wait(0.75)
+        PlantAllCarriedEggsInPen()
+    end
 
     -- 5. Land safely on base pen ground (Never go under map)
     local char = LP.Character
@@ -1701,11 +1796,15 @@ local function StealSpecificEggRobust(targetItem)
         pcall(function() hu:ChangeState(Enum.HumanoidStateType.Running) end)
     end
 
-    return carried or isPlayerCarryingEgg()
+    return finishSteal(carried or isPlayerCarryingEgg())
 end
 
 local function StealBestEggOnce()
-    pcall(HatchAllReadyEggs)
+    if stealInProgress then return false end
+    -- Hatch her steal oncesi PlacedEggRenderer'i bozar + BAC-4512 riski; sadece Auto Hatch acikken
+    if autoHatchEnabled then
+        pcall(HatchAllReadyEggs)
+    end
     local eggs = GetMatchingFieldEggs(selectedStealAreas, selectedStealRarities, selectedMutationTypes)
     if #eggs == 0 then
         return false -- Strictly respect user filter, no fallback to unwanted eggs!
@@ -1716,6 +1815,7 @@ local function StealBestEggOnce()
 end
 
 local function HatchAllReadyEggs()
+    if not allowClientEggCalls() then return 0 end
     if not EggState or not EggState.ReadOwnedEggs then return 0 end
     local ok, snapshot = pcall(EggState.ReadOwnedEggs, LP.UserId)
     if not ok or not snapshot then return 0 end
@@ -1735,9 +1835,10 @@ local function HatchAllReadyEggs()
                 if isReady then
                     pcall(function()
                         if EggState.BeginHatch then EggState.BeginHatch(uid) end
-                        task.wait(0.05)
+                        task.wait(0.35)
                         if EggState.FinishHatch then EggState.FinishHatch(uid) end
                         count = count + 1
+                        task.wait(0.25)
                     end)
                 end
             end
@@ -2117,7 +2218,9 @@ end
 local function DropHeldEgg()
     local rf = GetNetRemote("RF/EggWorld/AskFieldEggDrop")
     if rf then pcall(function() rf:InvokeServer() end) end
-    if EggState and EggState.DropFieldEgg then pcall(EggState.DropFieldEgg) end
+    if allowClientEggCalls() and EggState and EggState.DropFieldEgg then
+        pcall(EggState.DropFieldEgg)
+    end
 end
 
 local function BuyAffordableTrails()
@@ -2760,6 +2863,10 @@ local HatchSub = EggsTab:AddSubTab("Auto Hatch & Plant")
 local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 
 -- SubTab: Auto Steal
+StealSub:AddParagraph({
+    Title = "y0zfqq — hizli kurulum",
+    Content = "BAC-5516: Auto Hatch/Plant KAPALI. Sadece Auto Steal + Kick-Safe + Tween Glide.\nArea sec → 6sn bekle. Plant sadece 'Auto Plant' acikken.",
+})
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
     Callback = safeCallback(function(v)
@@ -3350,7 +3457,7 @@ ConfigSub:AddButton({
 
     ConfigSub:AddParagraph({
         Title = "y0zfqq | Steal an Egg",
-        Content = "y0zfqq HUB — PC / telefon uyumlu.\nKick-safe steal, yol cizgisi donusu, otomatik plant, hatch & base otomasyonlari."
+        Content = "y0zfqq HUB\nBAC-4512 kick: Auto Hatch'i steal ile birlikte acma. Kick-Safe + Tween Glide kullan.\nTelefon modu: GC bypass kapali, BAC spoof acik."
     })
 end
 
@@ -3384,4 +3491,9 @@ HUB.Unload = function()
     _G.y0zfqqStealAnEgg = nil
 end
 
-Notify("y0zfqq", "Steal an Egg hub yuklendi!", "Success", 3.5)
+task.defer(function()
+    local hookOk = (hookfunction or replaceclosure or hookfunc) ~= nil
+    local bacOn = shouldUseBacSpoof() and hookOk
+    local msg = bacOn and "Hub yuklendi — BAC spoof aktif." or "Hub yuklendi — BAC spoof YOK (hook yok), kick riski!"
+    Notify("y0zfqq", msg, bacOn and "Success" or "Warning", 4)
+end)

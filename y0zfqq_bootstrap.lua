@@ -8,6 +8,8 @@ return function(g, playerGui)
     g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof ~= false)
     g.OxideDisableTags = (g.OxideDisableTags ~= false)
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
+    g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)
+    g.OxideRemoteOnly = (g.OxideRemoteOnly ~= false)
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
         Parent = playerGui,
