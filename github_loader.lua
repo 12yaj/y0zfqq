@@ -82,7 +82,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName
+    local url = RAW_BASE .. fileName .. "?v=9&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -127,6 +127,18 @@ if not hubSrc then
     bootErr("aa.lua indirilemedi.\n" .. tostring(hubErr))
     return
 end
+local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
+print("[y0zfqq HTTP] aa.lua GitHub build:", tostring(hubBuild))
+if not hubBuild or hubBuild < 9 then
+    bootErr(
+        "GitHub'daki aa.lua ESKI (build " .. tostring(hubBuild) .. ").\n"
+        .. "Beklenen: build 9+\n\n"
+        .. "https://github.com/12yaj/y0zfqq  uzerinden aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua, y0zfqq_bootstrap.lua dosyalarini REPLACE et.\n"
+        .. "Sonra cache kirarak tekrar dene:\n"
+        .. "loadstring(game:HttpGet('https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?'..os.time()))()"
+    )
+    return
+end
 
 local bootSrc = fetchScript("y0zfqq_bootstrap.lua")
 local bootFn = bootSrc and loadstring(bootSrc, "y0zfqq_bootstrap.lua")
@@ -137,6 +149,8 @@ if bootFn then
     end
 else
     g.OxideForcePC = (g.OxideForcePC ~= false)
+    g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad ~= false)
+    g.y0zfqqJoinGraceSec = g.y0zfqqJoinGraceSec or 15
     g.OxideUsePlayerGui = true
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)

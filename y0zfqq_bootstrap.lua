@@ -1,8 +1,10 @@
 --[[ y0zfqq — ortak getgenv ayarlari (b.lua / paste_this_pc readfile ile yukler) ]]
 return function(g, playerGui)
     g.OxideForcePC = (g.OxideForcePC ~= false)
-    g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad ~= false)
-    g.OxideDeferLoad = (g.OxideDeferLoad ~= false)
+    g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad == true)
+    g.OxideDeferLoad = (g.OxideDeferLoad == true)
+    g.y0zfqqJoinGrace = (g.y0zfqqJoinGrace == true)
+    g.OxideJoinGrace = (g.OxideJoinGrace == true)
     g.y0zfqqJoinGraceSec = g.y0zfqqJoinGraceSec or 15
     g.OxideJoinGraceSec = g.OxideJoinGraceSec or g.y0zfqqJoinGraceSec
     g.y0zfqqStealthGui = (g.y0zfqqStealthGui ~= false)
@@ -23,6 +25,8 @@ return function(g, playerGui)
     g.OxideDisableEvidenceScrub = true
     g.OxideAutoGuard = (g.OxideAutoGuard == true)
     g.y0zfqqAutoGuard = (g.y0zfqqAutoGuard == true)
+    g.OxideAutoLoadConfig = (g.OxideAutoLoadConfig == true)
+    g.y0zfqqAutoLoadConfig = (g.y0zfqqAutoLoadConfig == true)
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
         Parent = playerGui,
@@ -30,9 +34,13 @@ return function(g, playerGui)
         LoadingDuration = 0.9,
         DisplayOrder = 100,
         SkipTagSystem = true,
+        AutoLoad = false,
+        ConfigName = "y0zfqq_steal",
     }
     if playerGui then
         g.OxideCreateWindowOpts.Parent = g.OxideCreateWindowOpts.Parent or playerGui
     end
     g.OxideCreateWindowOpts.SkipTagSystem = true
+    g.OxideCreateWindowOpts.AutoLoad = false
+    g.OxideCreateWindowOpts.ConfigName = "y0zfqq_steal"
 end

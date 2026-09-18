@@ -18,11 +18,10 @@ local function oxideEnvEarly()
     return _G
 end
 
--- BAC-3514/3517: executor + menu aninda yuklenince idle kick — once oyuna otur
+-- Join grace sadece acikca istenirse (eski build 6 her PC inject'te 15sn bekletiyordu)
 local function applyJoinGrace()
     local g = oxideEnvEarly()
-    if g.y0zfqqDeferLoad == false or g.OxideDeferLoad == false then return end
-    if g.OxideForcePC ~= true and g.y0zfqqJoinGrace ~= true then return end
+    if g.y0zfqqJoinGrace ~= true and g.OxideJoinGrace ~= true then return end
     local sec = tonumber(g.y0zfqqJoinGraceSec) or tonumber(g.OxideJoinGraceSec) or 15
     sec = math.clamp(sec, 5, 90)
     local lp = PlayersEarly.LocalPlayer or PlayersEarly.PlayerAdded:Wait()
@@ -41,7 +40,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 6 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 9 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -70,6 +69,15 @@ if typeof(getgenv) == "function" then
         for k, v in pairs(g.OxideCreateWindowOpts) do
             windowOpts[k] = v
         end
+    end
+end
+-- Libary CreateWindow: AutoLoad=true ise 0.6sn sonra eski config → Auto Steal/Fly acilir (4512)
+windowOpts.ConfigName = "y0zfqq_steal"
+windowOpts.AutoLoad = false
+if typeof(getgenv) == "function" then
+    local g = getgenv()
+    if g.y0zfqqAutoLoadConfig == true or g.OxideAutoLoadConfig == true then
+        windowOpts.AutoLoad = true
     end
 end
 local Window = Library:CreateWindow(windowOpts)
@@ -622,8 +630,9 @@ local function installBacTelemetryHook()
     return true
 end
 
+-- BAC hook inject'te HIC calismaz. Acmak: getgenv().y0zfqqEnableBacSpoof = true (2513/2514 risk)
 if shouldUseBacSpoof() and HookFn then
-    local delaySec = 14
+    local delaySec = 18
     pcall(function()
         local g = oxideEnv()
         delaySec = tonumber(g.y0zfqqBacSpoofDelay) or tonumber(g.OxideBacSpoofDelay) or delaySec
@@ -635,26 +644,23 @@ if shouldUseBacSpoof() and HookFn then
         if ok then
             pcall(function() Notify("y0zfqq", "BAC telemetry hazir (gecikmeli)", "Info", 3) end)
         end
-    end)
-end
-
-task.spawn(function()
-    while not HUB.dead do
-        task.wait(10)
-        if bacHookInstalled then
-            local alive = false
-            for r in pairs(remoteSet) do
-                if r:IsDescendantOf(game) then alive = true; break end
-            end
-            if not alive then
-                table.clear(remoteSet)
-                anyRemote = nil
-                model = nil
-                scanRemotes()
+        while not HUB.dead do
+            task.wait(10)
+            if bacHookInstalled then
+                local alive = false
+                for r in pairs(remoteSet) do
+                    if r:IsDescendantOf(game) then alive = true; break end
+                end
+                if not alive then
+                    table.clear(remoteSet)
+                    anyRemote = nil
+                    model = nil
+                    scanRemotes()
+                end
             end
         end
-    end
-end)
+    end)
+end
 
 -- Real-time Memory Evidence Scrubber for Character Integrity
 -- PHONE FIX: the "not found yet" path used to re-scan the ENTIRE GC heap every
@@ -864,8 +870,8 @@ local kickSafeMode           = true
 if typeof(getgenv) == "function" and getgenv().OxideKickSafe == false then
     kickSafeMode = false
 end
-local KICK_SAFE_MAX_SPEED    = 195
-local KICK_SAFE_ZONE_SPEED   = 175
+local KICK_SAFE_MAX_SPEED    = 168
+local KICK_SAFE_ZONE_SPEED   = 145
 
 local function resolveTravelSpeed(requested, inSafeZone)
     requested = tonumber(requested) or tonumber(glideSpeed) or 750
@@ -1113,13 +1119,20 @@ local function TravelSafeWalk(targetPos)
     return true
 end
 
+local function effectiveStealMovementMethod()
+    if kickSafeMode and stealMovementMethod == "Fly Glide" then
+        return "Tween Glide"
+    end
+    return stealMovementMethod
+end
+
 local function TravelToDestination(targetPos, speed, isApproach)
-    if stealMovementMethod == "Fly Glide" then
+    local mode = effectiveStealMovementMethod()
+    if mode == "Fly Glide" then
         return TravelFlyDirect(targetPos, speed, isApproach)
-    elseif stealMovementMethod == "Safe Walk" then
+    elseif mode == "Safe Walk" then
         return TravelSafeWalk(targetPos)
     else
-        -- "Tween Glide" smoothly glides to the egg via the road
         return TravelRoadPath(targetPos, speed, isApproach)
     end
 end
@@ -1250,7 +1263,8 @@ local stealBigEggsOnly          = false
 local selectedStealRarities     = {}
 local selectedStealAreas        = {}
 local selectedMutationTypes     = {}
-local stealDelay                = kickSafeMode and 4.0 or 1.5
+local stealDelay                = kickSafeMode and 5.0 or 1.5
+local lastStealFinishAt         = 0
 local glideSpeed                = kickSafeMode and KICK_SAFE_MAX_SPEED or 750
 local ignoredEggs               = {} -- [uid] = timestamp (prevents loops on failed eggs)
 
@@ -1680,7 +1694,8 @@ local function StealSpecificEggRobust(targetItem)
 
     local net = RS:FindFirstChild("Packages") and RS.Packages:FindFirstChild("Networking")
     local carryRemote = net and net:FindFirstChild("RF/EggWorld/AskFieldEggCarry")
-    if carryRemote then
+    -- BAC-4512: Kick-Safe'de once prompt; erken InvokeServer sunucu kick atar
+    if carryRemote and not kickSafeMode then
         pcall(function() carryRemote:InvokeServer({ Uid = record.Uid, FirstAreaSlotKey = slotKey }) end)
     end
     if allowClientEggCalls() then
@@ -1740,9 +1755,19 @@ local function StealSpecificEggRobust(targetItem)
         task.wait(0.08)
     end
 
+    if not carried and kickSafeMode and carryRemote then
+        pcall(function() carryRemote:InvokeServer({ Uid = record.Uid, FirstAreaSlotKey = slotKey }) end)
+        task.wait(0.25)
+        carried = isPlayerCarryingEgg()
+    end
+
     if not carried then
         ignoredEggs[record.Uid] = os.clock()
         return finishSteal(false)
+    end
+
+    if kickSafeMode then
+        task.wait(0.65)
     end
 
     -- 2.5 Guard-hit double pickup trick (user method: pickup -> get hit by guard -> pickup again -> glide back to avoid deliver error)
@@ -1954,10 +1979,14 @@ local function StealSpecificEggRobust(targetItem)
     if not isPlayerCarryingEgg() then
         return finishSteal(false)
     end
-    TravelReturnLineDrop(safePlotCenter, speed)
-    task.wait(0.12)
+    if kickSafeMode then
+        TravelRoadPath(safePlotCenter + Vector3.new(0, 1.2, 0), resolveTravelSpeed(speed, true), false)
+    else
+        TravelReturnLineDrop(safePlotCenter, speed)
+    end
+    task.wait(kickSafeMode and 0.35 or 0.12)
 
-    waitForSafeZoneDeliver(safePlotCenter, 7)
+    waitForSafeZoneDeliver(safePlotCenter, kickSafeMode and 9 or 7)
 
     if autoPlantEnabled then
         task.wait(0.75)
@@ -1968,7 +1997,7 @@ local function StealSpecificEggRobust(targetItem)
     local char = LP.Character
     local h = char and char:FindFirstChild("HumanoidRootPart")
     local hu = char and char:FindFirstChildOfClass("Humanoid")
-    if h then
+    if h and not kickSafeMode then
         h.CFrame = CFrame.new(safePlotCenter.X, math.max(safePlotCenter.Y, 70.4), safePlotCenter.Z)
         h.AssemblyLinearVelocity = Vector3.zero
         h.AssemblyAngularVelocity = Vector3.zero
@@ -1979,11 +2008,15 @@ local function StealSpecificEggRobust(targetItem)
         pcall(function() hu:ChangeState(Enum.HumanoidStateType.Running) end)
     end
 
+    lastStealFinishAt = os.clock()
     return finishSteal(carried or isPlayerCarryingEgg())
 end
 
 local function StealBestEggOnce()
     if stealInProgress then return false end
+    if kickSafeMode and lastStealFinishAt > 0 and (os.clock() - lastStealFinishAt) < 2.5 then
+        return false
+    end
     -- Hatch her steal oncesi PlacedEggRenderer'i bozar + BAC-4512 riski; sadece Auto Hatch acikken
     if autoHatchEnabled then
         pcall(HatchAllReadyEggs)
@@ -2632,7 +2665,7 @@ task.spawn(function()
     end
 
     while not HUB.dead do
-        if avoidTrapsEnabled or autoStealEnabled then
+        if avoidTrapsEnabled then
             pcall(NeutralizeTraps)
         end
         task.wait(1.5)
@@ -2954,23 +2987,43 @@ local function ApplyJumpPower(v)
     end
 end
 
-track(RunService.Stepped:Connect(function()
-    if HUB.dead then return end
-    local hum = findHum()
-    if hum then
-        if walkSpeedEnabled then hum.WalkSpeed = walkSpeedVal end
-        if jumpPowerEnabled then hum.UseJumpPower = true; hum.JumpPower = jumpPowerVal end
-    end
-end))
-
-track(UserInputService.JumpRequest:Connect(function()
-    if HUB.dead then return end
-    local hum = findHum()
-    if hum then
-        hum.Jump = true
-        hum:ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-end))
+local moveStepConn, infJumpConn = nil, nil
+local function ensureMoveStepLoop()
+    if moveStepConn then return end
+    moveStepConn = track(RunService.Stepped:Connect(function()
+        if HUB.dead then return end
+        if not walkSpeedEnabled and not jumpPowerEnabled then return end
+        local hum = findHum()
+        if hum then
+            if walkSpeedEnabled then hum.WalkSpeed = walkSpeedVal end
+            if jumpPowerEnabled then hum.UseJumpPower = true; hum.JumpPower = jumpPowerVal end
+        end
+    end))
+end
+local function stopMoveStepLoop()
+    if not moveStepConn then return end
+    pcall(function() moveStepConn:Disconnect() end)
+    moveStepConn = nil
+end
+local function syncMoveStepLoop()
+    if walkSpeedEnabled or jumpPowerEnabled then ensureMoveStepLoop() else stopMoveStepLoop() end
+end
+local function ensureInfJumpLoop()
+    if infJumpConn then return end
+    infJumpConn = track(UserInputService.JumpRequest:Connect(function()
+        if HUB.dead or not infiniteJump then return end
+        local hum = findHum()
+        if hum then
+            hum.Jump = true
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end))
+end
+local function stopInfJumpLoop()
+    if not infJumpConn then return end
+    pcall(function() infJumpConn:Disconnect() end)
+    infJumpConn = nil
+end
 
 local function startFly()
     if flying then return end
@@ -3061,7 +3114,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "BAC-3514: yukleme 15sn gecikmeli (join grace). Hook kapali.\nKick-Safe + Tween Glide + Area. Menu: Sag Ctrl.",
+    Content = "build 9: inject'te HICBIR sey acilmaz (eski config yok sayilir).\nAuto Steal / Hatch / ESP / Fly sen acana kadar KAPALI.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3086,14 +3139,18 @@ StealSub:AddToggle({
         if v and glideSpeed > KICK_SAFE_MAX_SPEED then
             glideSpeed = KICK_SAFE_MAX_SPEED
         end
-        if v and stealDelay < 3.5 then
-            stealDelay = 4.0
+        if v and stealDelay < 4.5 then
+            stealDelay = 5.0
         end
-        Notify("Kick-Safe", v and "On — ~195 studs/s, telefon modu, gecikmeli steal" or "Off — hizli ama kick riski", v and "Success" or "Warning")
+        if v and glideSpeed > KICK_SAFE_MAX_SPEED then
+            glideSpeed = KICK_SAFE_MAX_SPEED
+        end
+        Notify("Kick-Safe", v and "On — ~168 studs/s, Tween yol, prompt carry" or "Off — hizli ama BAC-4512 riski", v and "Success" or "Warning")
     end
 })
 StealSub:AddDropdown({
-    Name = "Steal Movement Method", Options = { "Fly Glide", "Tween Glide", "Safe Walk" }, Default = "Fly Glide", Flag = "steal_method",
+    Name = "Steal Movement Method", Options = { "Fly Glide", "Tween Glide", "Safe Walk" },
+    Default = stealMovementMethod, Flag = "steal_method",
     Callback = function(v) stealMovementMethod = v end
 })
 StealSub:AddToggle({
@@ -3427,18 +3484,30 @@ GuardSub:AddToggle({
     end)
 })
 
+local antiRagConn = nil
+local function stopAntiRagLoop()
+    if not antiRagConn then return end
+    pcall(function() antiRagConn:Disconnect() end)
+    antiRagConn = nil
+end
+local function ensureAntiRagLoop()
+    if antiRagConn then return end
+    antiRagConn = track(RunService.Heartbeat:Connect(function()
+        if HUB.dead or not antiRagdollEnabled then return end
+        local hum = findHum()
+        if hum and hum:GetState() == Enum.HumanoidStateType.Physics then
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
+    end))
+end
+
 GuardSub:AddToggle({
     Name = "Anti-Ragdoll (Quick Standup)", Default = false, Flag = "anti_ragdoll",
-    Callback = function(v) antiRagdollEnabled = v end
-})
-
-track(RunService.Heartbeat:Connect(function()
-    if HUB.dead or not antiRagdollEnabled then return end
-    local hum = findHum()
-    if hum and hum:GetState() == Enum.HumanoidStateType.Physics then
-        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    Callback = function(v)
+        antiRagdollEnabled = v
+        if v then ensureAntiRagLoop() else stopAntiRagLoop() end
     end
-end))
+})
 end
 
 -- -----------------------------------------------------------------------------
@@ -3456,6 +3525,7 @@ MoveSub:AddToggle({
     Name = "Enable WalkSpeed", Default = false, Flag = "speed_enabled",
     Callback = safeCallback(function(v)
         walkSpeedEnabled = v
+        syncMoveStepLoop()
         if not v then
             local hum = findHum()
             if hum then hum.WalkSpeed = 16 end
@@ -3471,6 +3541,7 @@ MoveSub:AddToggle({
     Name = "Enable JumpPower", Default = false, Flag = "jump_enabled",
     Callback = safeCallback(function(v)
         jumpPowerEnabled = v
+        syncMoveStepLoop()
         if not v then
             local hum = findHum()
             if hum then hum.JumpPower = 50 end
@@ -3484,7 +3555,10 @@ MoveSub:AddSlider({
 })
 MoveSub:AddToggle({
     Name = "Infinite Jump", Default = false, Flag = "inf_jump",
-    Callback = function(v) infiniteJump = v end
+    Callback = function(v)
+        infiniteJump = v
+        if v then ensureInfJumpLoop() else stopInfJumpLoop() end
+    end
 })
 MoveSub:AddToggle({
     Name = "Smooth Fly (WASD + Space/Shift)", Default = false, Flag = "fly_enabled",
@@ -3632,6 +3706,8 @@ if HAS_CONFIG then
             local ok, err = Library:LoadConfig(CONFIG_NAME)
             if ok then
                 ResyncAll()
+                pcall(syncMoveStepLoop)
+                if infiniteJump then pcall(ensureInfJumpLoop) else pcall(stopInfJumpLoop) end
                 Notify("Config", "Loaded config '" .. CONFIG_NAME .. "'", "Success")
             else
                 Notify("Config", "Load failed: " .. tostring(err), "Error")
@@ -3664,6 +3740,47 @@ end
 
 end -- CreateHubUI
 CreateHubUI()
+
+local function ForceIdleDefaults()
+    autoStealEnabled = false
+    stealGraceUntil = 0
+    stealInProgress = false
+    autoHatchEnabled = false
+    autoPlantEnabled = false
+    autoUpgradeBase = false
+    autoUpgradeTreadmill = false
+    autoTrainSpeed = false
+    autoBuyTrails = false
+    autoEquipBestPets = false
+    autoClaimRewards = false
+    autoSellPets = false
+    autoSellEggs = false
+    batAuraEnabled = false
+    avoidTrapsEnabled = false
+    noKnockbackEnabled = false
+    antiRagdollEnabled = false
+    walkSpeedEnabled = false
+    jumpPowerEnabled = false
+    infiniteJump = false
+    antiAFK = false
+    if type(esp) == "table" then esp.enabled = false end
+    if type(Boss) == "table" then
+        Boss.autoJoin = false
+        Boss.autoFight = false
+        Boss.autoMastery = false
+        Boss.hazardImmune = false
+    end
+    pcall(stopFly)
+    pcall(stopEspRenderLoop)
+    pcall(syncMoveStepLoop)
+    pcall(stopInfJumpLoop)
+    pcall(stopAntiRagLoop)
+end
+ForceIdleDefaults()
+task.delay(1.4, function()
+    if HUB.dead then return end
+    ForceIdleDefaults()
+end)
 
 end -- InitHubFeatures
 InitHubFeatures()
@@ -3710,5 +3827,6 @@ task.defer(function()
         .. " | Remote egg: " .. (remoteEggs and "OK" or "YOK")
         .. " | BAC hook: " .. (bacPlan and "opt-in" or "kapali")
         .. " | EggState: " .. (allowClientEggCalls() and "acik" or "kapali")
+        .. " | Config autoload: kapali"
     Notify("y0zfqq", msg, remoteEggs and "Success" or "Warning", 5)
 end)

@@ -3413,7 +3413,8 @@ function Library:CreateWindow(opts)
     local cfgName = opts.ConfigName or (opts.Name and tostring(opts.Name):gsub("[^%w%-_]", ""):lower()) or tostring(game.PlaceId)
     Library._currentConfigName = cfgName
 
-    if opts.AutoLoad ~= false then
+    -- Varsayilan KAPALI: eski config inject'te Auto Steal/Fly acip BAC-2514 atiyordu
+    if opts.AutoLoad == true then
         task.defer(function()
             task.wait(0.6)
             if hasFileApi() then
