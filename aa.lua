@@ -44,7 +44,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 17 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 18 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -904,7 +904,7 @@ local function InitHubFeatures()
     local grace = tonumber(g0.y0zfqqMenuGraceAfterLoad) or tonumber(g0.y0zfqqMenuGraceSec) or 0
     grace = math.clamp(grace, 0, 90)
     if grace > 0 then
-        print("[y0zfqq] Ctrl sonrasi", grace, "sn bekleniyor (BAC-5516 onleme)...")
+        print("[y0zfqq] GUI oncesi", grace, "sn (BAC-2518 — Libary/CreateWindow gecikmesi)...")
         task.wait(grace)
     end
     if HUB.dead then return end

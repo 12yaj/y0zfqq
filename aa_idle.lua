@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-local IDLE_BUILD = 17
+local IDLE_BUILD = 18
 
 local function env()
     if typeof(getgenv) == "function" then return getgenv() end
@@ -179,8 +179,8 @@ local function bootFullHub()
     end
 
     local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-    if not hubBuild or hubBuild < 17 then
-        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 17+ yukle.")
+    if not hubBuild or hubBuild < 18 then
+        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 18+ yukle.")
         loading = false
         booted = false
         return
@@ -202,7 +202,7 @@ local function bootFullHub()
     g.y0zfqqOpenMenuNow = false
     g.y0zfqqOpenMenuAfterLoad = true
     local menuGrace = tonumber(g.y0zfqqMenuGraceAfterLoad)
-    if menuGrace == nil then menuGrace = direct and 0 or 20 end
+    if menuGrace == nil then menuGrace = direct and 12 or 20 end
     g.y0zfqqMenuGraceAfterLoad = menuGrace
 
     local hubCode = "local Library = (getgenv and getgenv().__y0zfqqLib) or _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc

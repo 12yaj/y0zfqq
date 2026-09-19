@@ -47,7 +47,8 @@ return function(g, playerGui)
     g.OxideLazyInject = (g.OxideLazyInject == true)
     if g.y0zfqqDirectMenu then
         g.y0zfqqOpenMenuAfterLoad = (g.y0zfqqOpenMenuAfterLoad ~= false)
-        g.y0zfqqMenuGraceAfterLoad = g.y0zfqqMenuGraceAfterLoad or 0
+        -- BAC-2518: CreateWindow hemen acilirsa (coklu loadstring) — kisa nefes
+        g.y0zfqqMenuGraceAfterLoad = g.y0zfqqMenuGraceAfterLoad or 12
         g.y0zfqqHubLoadGraceSec = g.y0zfqqHubLoadGraceSec or 0
         g.y0zfqqHubSplitGraceSec = g.y0zfqqHubSplitGraceSec or 0
         g.y0zfqqDirectMenuDelaySec = g.y0zfqqDirectMenuDelaySec or 4
