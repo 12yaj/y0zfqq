@@ -71,7 +71,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=19&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=20&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -178,9 +178,9 @@ local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 if g.y0zfqqQuiet ~= true then
     print("[y0zfqq] aa build", tostring(hubBuild), "| minimal HTTP yolu")
 end
-if not hubBuild or hubBuild < 19 then
+if not hubBuild or hubBuild < 20 then
     bootErr(
-        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 19+.\n"
+        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 20+.\n"
         .. "aa.lua, github_loader.lua, y0zfqq_bootstrap.lua, y0zfqq.lua REPLACE."
     )
     return

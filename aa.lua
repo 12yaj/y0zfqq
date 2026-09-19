@@ -56,7 +56,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 19 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 20 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -118,9 +118,12 @@ hubLog("[y0zfqq] aa build", HUB.build, useMinimalUi() and "- minimal UI (Jane)" 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
 -- ==============================================================================
-local HAS_CONFIG = type(Library.SaveConfig) == "function"
-    and type(Library.LoadConfig) == "function"
-    and type(Library.ListConfigs) == "function"
+local HAS_CONFIG = false
+if not useMinimalUi() and type(Library) == "table" then
+    HAS_CONFIG = type(Library.SaveConfig) == "function"
+        and type(Library.LoadConfig) == "function"
+        and type(Library.ListConfigs) == "function"
+end
 local CONFIG_NAME = "y0zfqq_steal"
 
 local dropdownResync = {}
