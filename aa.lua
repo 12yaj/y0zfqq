@@ -51,7 +51,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 22 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 23 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -348,6 +348,71 @@ local function FetchFieldEggSnapshot(forceRefresh, syncRemotes, forceRf)
         end
     end
     return eggSnapCache.data
+end
+
+local worldEggCache = { t = 0, list = {} }
+local function CollectWorldFieldEggs()
+    if (os.clock() - worldEggCache.t) < 0.5 and #worldEggCache.list > 0 then
+        return worldEggCache.list
+    end
+    local list = {}
+    local seen = {}
+    for _, d in ipairs(Workspace:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and d.Enabled then
+            local id = d.Name or ""
+            local attr = d:GetAttribute("PromptId")
+            if id == "CarryAreaEgg" or attr == "CarryAreaEgg" then
+                local act = (d.ActionText or ""):lower()
+                local obj = (d.ObjectText or ""):lower()
+                if not act:find("skip", 1, true) and not act:find("robux", 1, true)
+                    and not obj:find("skip", 1, true) and not obj:find("robux", 1, true) then
+                    local p = d.Parent
+                    if p and p:IsA("Attachment") then p = p.Parent end
+                    local pos
+                    if p and p:IsA("BasePart") then
+                        pos = p.Position
+                    elseif p and p:IsA("Model") then
+                        pos = p:GetPivot().Position
+                    elseif d.Parent and d.Parent:IsA("Attachment") then
+                        pos = d.Parent.WorldPosition
+                    end
+                    if pos then
+                        local uid = d:GetAttribute("Uid") or (p and (p:GetAttribute("Uid") or p:GetAttribute("EggUid")))
+                        if not uid then
+                            uid = string.format("w:%.1f:%.1f:%.1f", pos.X, pos.Y, pos.Z)
+                        end
+                        if not seen[uid] then
+                            seen[uid] = true
+                            table.insert(list, {
+                                Uid = uid,
+                                State = "Slot",
+                                BoundsCFrame = CFrame.new(pos),
+                                AssetCategory = d.ObjectText ~= "" and d.ObjectText or "Egg",
+                                Mutations = {},
+                                AreaId = p and p:GetAttribute("AreaId"),
+                                NestId = p and p:GetAttribute("NestId"),
+                                _prompt = d,
+                                _part = p,
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+    worldEggCache.t = os.clock()
+    worldEggCache.list = list
+    return list
+end
+
+local function GetFieldEggRecords(allowRemote)
+    if allowRemote then
+        local snap = FetchFieldEggSnapshot(true, true, true)
+        if snap and type(snap.Records) == "table" and #snap.Records > 0 then
+            return snap.Records
+        end
+    end
+    return CollectWorldFieldEggs()
 end
 
 local function isEggToolInstance(t)
@@ -997,11 +1062,11 @@ local function isBigEgg(record)
 end
 
 local function GetMatchingFieldEggs(areasFilter, raritiesFilter, mutationsFilter)
-    local snapshot = FetchFieldEggSnapshot(true, true, true)
-    if not snapshot or not snapshot.Records then return {} end
+    local records = GetFieldEggRecords(eggRemotesAllowed)
+    if not records then return {} end
 
     local matched = {}
-    for _, record in ipairs(snapshot.Records) do
+    for _, record in ipairs(records) do
         if record.State == "Slot" and record.BoundsCFrame then
             local isIgnored = ignoredEggs[record.Uid] and (os.clock() - ignoredEggs[record.Uid] < 2.5)
             if not isIgnored and (not stealBigEggsOnly or isBigEgg(record)) then
@@ -1207,8 +1272,8 @@ local function StealSpecificEggRobust(targetItem)
     local record = targetItem.record or targetItem
     if not record or not record.Uid or not record.BoundsCFrame then return finishSteal(false) end
 
-    -- Verify the egg is still present in the latest snapshot before traveling
-    do
+    -- World-prompt eggs skip snapshot (no RF). Snapshot eggs re-check once.
+    if not record._prompt then
         local snap = FetchFieldEggSnapshot(true, true, true)
         if snap and snap.Records then
             local stillThere = false
@@ -1588,32 +1653,65 @@ local function StealBestEggOnce()
 end
 
 local function HatchAllReadyEggs()
-    if not allowClientEggCalls() then return 0 end
-    ensureClientEggModules()
-    if not EggState or not EggState.ReadOwnedEggs then return 0 end
-    local ok, snapshot = pcall(EggState.ReadOwnedEggs, LP.UserId)
-    if not ok or not snapshot then return 0 end
-
     local count = 0
-    local records = snapshot.Records or snapshot
-    if typeof(records) == "table" then
-        for uid, eggData in pairs(records) do
-            if typeof(eggData) == "table" then
-                local isReady = false
-                if EggState.IsReadyToHatch then
-                    isReady = EggState.IsReadyToHatch(eggData)
-                else
-                    isReady = eggData.Placement ~= nil
+    local function tryHatchPrompt(container)
+        if not container then return end
+        for _, inst in ipairs(container:GetDescendants()) do
+            if inst:IsA("ProximityPrompt") and inst.Enabled then
+                local blob = ((inst.Name or "") .. " " .. (inst.ActionText or "") .. " " .. (inst.ObjectText or "")):lower()
+                if blob:find("hatch", 1, true) and not blob:find("robux", 1, true) then
+                    inst.HoldDuration = 0
+                    pcall(function() fireproximityprompt(inst) end)
+                    count = count + 1
                 end
+            end
+        end
+    end
+    tryHatchPrompt(LP.Character)
+    tryHatchPrompt(LP:FindFirstChild("Backpack"))
+    local plots = Workspace:FindFirstChild("Plots")
+    local plot = plots and plots:FindFirstChild(tostring(GetLocalSlot()))
+    tryHatchPrompt(plot)
 
-                if isReady then
-                    pcall(function()
-                        if EggState.BeginHatch then EggState.BeginHatch(uid) end
-                        task.wait(0.35)
-                        if EggState.FinishHatch then EggState.FinishHatch(uid) end
-                        count = count + 1
-                        task.wait(0.25)
-                    end)
+    for _, name in ipairs({
+        "RF/EggWorld/AskHatch",
+        "RF/EggWorld/AskBeginHatch",
+        "RF/EggWorld/AskFinishHatch",
+        "RF/EggPen/AskHatch",
+    }) do
+        local rf = GetNetRemote(name)
+        if rf then
+            pcall(function()
+                if rf:IsA("RemoteFunction") then rf:InvokeServer() else rf:FireServer() end
+            end)
+        end
+    end
+
+    if allowClientEggCalls() then
+        ensureClientEggModules()
+        if EggState and EggState.ReadOwnedEggs then
+            local ok, snapshot = pcall(EggState.ReadOwnedEggs, LP.UserId)
+            if ok and snapshot then
+                local records = snapshot.Records or snapshot
+                if typeof(records) == "table" then
+                    for uid, eggData in pairs(records) do
+                        if typeof(eggData) == "table" then
+                            local isReady = false
+                            if EggState.IsReadyToHatch then
+                                isReady = EggState.IsReadyToHatch(eggData)
+                            else
+                                isReady = eggData.Placement ~= nil
+                            end
+                            if isReady then
+                                pcall(function()
+                                    if EggState.BeginHatch then EggState.BeginHatch(uid) end
+                                    task.wait(0.35)
+                                    if EggState.FinishHatch then EggState.FinishHatch(uid) end
+                                    count = count + 1
+                                end)
+                            end
+                        end
+                    end
                 end
             end
         end
@@ -2217,250 +2315,151 @@ local esp = {
     guardColor      = Color3.fromRGB(255, 60, 60),
 }
 
-local hasDrawing = type(Drawing) == "table" and type(Drawing.new) == "function"
-local trackedEspObjects = {}
+
 local espBillboards = {}
-local espContainer = nil
 
-local function getEspContainer()
-    if espContainer and espContainer.Parent then return espContainer end
-    local p = nil
-    pcall(function() p = (gethui and gethui()) end)
-    if not p then pcall(function() p = game:GetService("CoreGui") end) end
-    if not p then p = LP:FindFirstChild("PlayerGui") or Workspace end
-
-    pcall(function()
-        for _, c in ipairs(p:GetChildren()) do
-            if c:IsA("Folder") and c.Name == "SAE_Esp_Holder" then c:Destroy() end
-        end
-    end)
-    espContainer = Instance.new("Folder")
-    espContainer.Name = "SAE_Esp_Holder"
-    pcall(function() espContainer.Parent = p end)
-    return espContainer
+local function getEspFolder()
+    local pg = LP:FindFirstChild("PlayerGui")
+    if not pg then return nil end
+    local f = pg:FindFirstChild("TrackLabels")
+    if f and f:IsA("Folder") then return f end
+    f = Instance.new("Folder")
+    f.Name = "TrackLabels"
+    f.Parent = pg
+    return f
 end
 
-local function updateEggBillboard(key, pos, icon)
-    local bb = espBillboards[key]
-    if not bb or not bb.gui or not bb.gui.Parent then
-        local holder = getEspContainer()
-        local part = Instance.new("Part")
-        part.Name = "EspAnchor"
-        part.Size = Vector3.new(1, 1, 1)
-        part.Transparency = 1
-        part.Anchored = true
-        part.CanCollide = false
-        part.CanQuery = false
-        part.CanTouch = false
-        part.CFrame = CFrame.new(pos)
-        part.Parent = holder
-
-        local gui = Instance.new("BillboardGui")
-        gui.Name = "EggIconBillboard"
-        gui.Adornee = part
-        gui.Size = UDim2.fromOffset(28, 28)
-        gui.StudsOffset = Vector3.new(-2.2, 1.2, 0)
-        gui.AlwaysOnTop = true
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.Parent = part
-
-        local img = Instance.new("ImageLabel")
-        img.Name = "PetImage"
-        img.Size = UDim2.fromScale(1, 1)
-        img.BackgroundTransparency = 1
-        img.ScaleType = Enum.ScaleType.Fit
-        img.Image = icon or ""
-        img.Parent = gui
-
-        bb = {
-            part = part,
-            gui = gui,
-            img = img
-        }
-        espBillboards[key] = bb
-    else
-        bb.part.CFrame = CFrame.new(pos)
-        bb.img.Image = icon or ""
-        bb.gui.Enabled = (icon ~= nil and icon ~= "")
+local function clearEspLabels()
+    for k, rec in pairs(espBillboards) do
+        pcall(function()
+            if rec.gui then rec.gui:Destroy() end
+        end)
+        espBillboards[k] = nil
     end
-    return bb
+    local folder = LP:FindFirstChild("PlayerGui") and LP.PlayerGui:FindFirstChild("TrackLabels")
+    if folder then pcall(function() folder:ClearAllChildren() end) end
 end
 
-local function createDrawingObject()
-    if not hasDrawing then return {} end
-    local o = {}
-    o.name = trackDrawing(Drawing.new("Text"))
-    o.name.Size = 13; o.name.Center = true; o.name.Outline = true; o.name.Visible = false
-
-    o.dist = trackDrawing(Drawing.new("Text"))
-    o.dist.Size = 11; o.dist.Center = true; o.dist.Outline = true; o.dist.Visible = false
-
-    o.box = trackDrawing(Drawing.new("Square"))
-    o.box.Thickness = 1.5; o.box.Filled = false; o.box.Visible = false
-
-    return o
+local function upsertEspLabel(key, adornee, text, color)
+    if not adornee or not adornee.Parent then return end
+    local folder = getEspFolder()
+    if not folder then return end
+    local rec = espBillboards[key]
+    if not rec or not rec.gui or not rec.gui.Parent then
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "Label"
+        gui.AlwaysOnTop = true
+        gui.Size = UDim2.fromOffset(140, 28)
+        gui.StudsOffset = Vector3.new(0, 2.2, 0)
+        gui.MaxDistance = math.max(esp.maxDistance or 800, 50)
+        gui.Adornee = adornee
+        gui.ResetOnSpawn = false
+        gui.Parent = folder
+        local tl = Instance.new("TextLabel")
+        tl.BackgroundTransparency = 1
+        tl.Size = UDim2.fromScale(1, 1)
+        tl.Font = Enum.Font.GothamBold
+        tl.TextSize = 12
+        tl.TextStrokeTransparency = 0.35
+        tl.Text = text
+        tl.TextColor3 = color
+        tl.Parent = gui
+        rec = { gui = gui, tl = tl }
+        espBillboards[key] = rec
+    else
+        rec.gui.Adornee = adornee
+        rec.gui.Enabled = true
+        rec.gui.MaxDistance = math.max(esp.maxDistance or 800, 50)
+        rec.tl.Text = text
+        rec.tl.TextColor3 = color
+    end
 end
 
 local espRenderConn = nil
 local function stopEspRenderLoop()
-    if not espRenderConn then return end
-    pcall(function() espRenderConn:Disconnect() end)
-    espRenderConn = nil
+    if espRenderConn then
+        pcall(function() espRenderConn:Disconnect() end)
+        espRenderConn = nil
+    end
+    clearEspLabels()
 end
+
 local function ensureEspRenderLoop()
     if espRenderConn then return end
-    espRenderConn = track(RunService.RenderStepped:Connect(function()
-    if HUB.dead or not esp.enabled then
-        for _, obj in pairs(trackedEspObjects) do
-            if obj.name then obj.name.Visible = false end
-            if obj.dist then obj.dist.Visible = false end
-            if obj.box then obj.box.Visible = false end
+    espRenderConn = track(RunService.Heartbeat:Connect(function()
+        if HUB.dead or not esp.enabled then
+            for _, rec in pairs(espBillboards) do
+                if rec.gui then rec.gui.Enabled = false end
+            end
+            return
         end
-        for _, bb in pairs(espBillboards) do
-            if bb.gui then bb.gui.Enabled = false end
-        end
-        return
-    end
+        local now = os.clock()
+        if now - (esp._lastDraw or 0) < 0.2 then return end
+        esp._lastDraw = now
+        local hrp = findHRP()
+        local myPos = hrp and hrp.Position or Vector3.zero
+        local active = {}
 
-    local hrp = findHRP()
-    local myPos = hrp and hrp.Position or Vector3.zero
-    local renderItems = {}
-    local activeBbKeys = {}
-
-    -- Eggs ESP
-    if esp.eggs then
-        local snap = FetchFieldEggSnapshot(false, false, true)
-        local ok = snap ~= nil
-        if ok and snap and snap.Records then
-            for _, egg in ipairs(snap.Records) do
-                if egg.State == "Slot" and egg.BoundsCFrame then
-                    local pos = egg.BoundsCFrame.Position
+        if esp.eggs then
+            local records = CollectWorldFieldEggs()
+            for _, egg in ipairs(records) do
+                local pos = egg.BoundsCFrame and egg.BoundsCFrame.Position
+                if pos then
                     local dist = (pos - myPos).Magnitude
                     if esp.maxDistance <= 0 or dist <= esp.maxDistance then
-                        local muts = egg.Mutations or {}
-                        local isRare = #muts > 0
-                        if not esp.rareEggsOnly or isRare then
-                            local mutText = isRare and (" [" .. table.concat(muts, ",") .. "]") or ""
-                            local rName = GetEggRarityInfo(egg)
-                            local label = (egg.AssetCategory or "Egg") .. " (" .. rName .. ")" .. mutText
-                            local cat = egg.AssetCategory
-                            local aInfo = AssetsData and (AssetsData.Directory or AssetsData) and (AssetsData.Directory or AssetsData)[cat]
-                            local petIcon = aInfo and (aInfo.Icon or (aInfo.Egg and aInfo.Egg.Icon)) or ""
+                        local adornee = egg._prompt
+                        if egg._part and egg._part.Parent then
+                            adornee = egg._part
+                        elseif egg._prompt and egg._prompt.Parent then
+                            adornee = egg._prompt.Parent:IsA("Attachment") and egg._prompt or egg._prompt.Parent
+                        end
+                        local label = (egg.AssetCategory or "Egg") .. "  " .. math.floor(dist)
+                        upsertEspLabel(egg.Uid, adornee, label, esp.eggColor)
+                        active[egg.Uid] = true
+                    end
+                end
+            end
+        end
 
-                            local itemColor = isRare and esp.rareEggColor or esp.eggColor
-
-                            table.insert(renderItems, {
-                                Key = egg.Uid,
-                                Pos = pos,
-                                Name = label,
-                                Color = itemColor,
-                                Dist = dist,
-                            })
-
-                            if esp.showPetIcons and petIcon ~= "" then
-                                activeBbKeys[egg.Uid] = true
-                                updateEggBillboard(egg.Uid, pos, petIcon)
-                            end
+        if esp.traps then
+            local debris = Workspace:FindFirstChild("__DEBRIS")
+            if debris then
+                for _, trap in ipairs(debris:GetChildren()) do
+                    if trap.Name == "PlayerTrap" and trap:IsA("BasePart") then
+                        local dist = (trap.Position - myPos).Magnitude
+                        if esp.maxDistance <= 0 or dist <= esp.maxDistance then
+                            local owner = trap:GetAttribute("Owner") or "?"
+                            local key = "t:" .. tostring(trap)
+                            upsertEspLabel(key, trap, "TRAP @" .. owner, esp.trapColor)
+                            active[key] = true
                         end
                     end
                 end
             end
         end
-    end
 
-    -- Traps ESP
-    if esp.traps then
-        local debris = Workspace:FindFirstChild("__DEBRIS")
-        if debris then
-            for _, trap in ipairs(debris:GetChildren()) do
-                if trap.Name == "PlayerTrap" and trap:IsA("BasePart") then
-                    local pos = trap.Position
-                    local dist = (pos - myPos).Magnitude
-                    if esp.maxDistance <= 0 or dist <= esp.maxDistance then
-                        local owner = trap:GetAttribute("Owner") or "Enemy"
-                        table.insert(renderItems, {
-                            Key = trap,
-                            Pos = pos + Vector3.new(0, 1.5, 0),
-                            Name = "[TRAP] @" .. owner,
-                            Color = esp.trapColor,
-                            Dist = dist,
-                        })
+        if esp.players then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LP and plr.Character then
+                    local oHrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if oHrp then
+                        local dist = (oHrp.Position - myPos).Magnitude
+                        if esp.maxDistance <= 0 or dist <= esp.maxDistance then
+                            local key = "p:" .. plr.UserId
+                            upsertEspLabel(key, oHrp, plr.DisplayName, esp.playerColor)
+                            active[key] = true
+                        end
                     end
                 end
             end
         end
-    end
 
-    -- Players ESP
-    if esp.players then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character then
-                local oHrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if oHrp then
-                    local dist = (oHrp.Position - myPos).Magnitude
-                    if esp.maxDistance <= 0 or dist <= esp.maxDistance then
-                        table.insert(renderItems, {
-                            Key = p,
-                            Pos = oHrp.Position,
-                            Name = p.DisplayName .. " (@" .. p.Name .. ")",
-                            Color = esp.playerColor,
-                            Dist = dist,
-                        })
-                    end
-                end
+        for k, rec in pairs(espBillboards) do
+            if not active[k] and rec.gui then
+                rec.gui.Enabled = false
             end
         end
-    end
-
-    -- Hide unreferenced billboards
-    for k, bb in pairs(espBillboards) do
-        if not activeBbKeys[k] and bb.gui then
-            bb.gui.Enabled = false
-        end
-    end
-
-    local cam = GetCamera()
-    local activeKeys = {}
-    for _, item in ipairs(renderItems) do
-        activeKeys[item.Key] = true
-        local obj = trackedEspObjects[item.Key]
-        if not obj then
-            obj = createDrawingObject()
-            trackedEspObjects[item.Key] = obj
-        end
-
-        local screenPos, onScreen = nil, false
-        if cam then
-            screenPos, onScreen = cam:WorldToViewportPoint(item.Pos)
-        end
-        if onScreen and hasDrawing and screenPos then
-            if obj.name then
-                obj.name.Text = item.Name
-                obj.name.Position = Vector2.new(screenPos.X, screenPos.Y - 14)
-                obj.name.Color = item.Color
-                obj.name.Visible = true
-            end
-            if obj.dist then
-                obj.dist.Text = math.floor(item.Dist) .. " studs"
-                obj.dist.Position = Vector2.new(screenPos.X, screenPos.Y + 2)
-                obj.dist.Color = Color3.fromRGB(220, 220, 220)
-                obj.dist.Visible = true
-            end
-        else
-            if obj.name then obj.name.Visible = false end
-            if obj.dist then obj.dist.Visible = false end
-            if obj.box then obj.box.Visible = false end
-        end
-    end
-
-    for k, obj in pairs(trackedEspObjects) do
-        if not activeKeys[k] then
-            if obj.name then obj.name.Visible = false end
-            if obj.dist then obj.dist.Visible = false end
-            if obj.box then obj.box.Visible = false end
-        end
-    end
-end))
+    end))
 end
 
 -- Fullbright
@@ -2755,7 +2754,6 @@ EggEspSub:AddToggle({
     Callback = safeCallback(function(v)
         esp.enabled = v
         if v then
-            setEggRemotePipelineEnabled(true)
             ensureEspRenderLoop()
         else
             stopEspRenderLoop()
@@ -2769,7 +2767,13 @@ EggEspSub:AddToggle({
 })
 EggEspSub:AddToggle({
     Name = "Trap ESP (Highlights Enemy Traps)", Default = false, Flag = "esp_traps",
-    Callback = function(v) esp.traps = v end
+    Callback = function(v)
+        esp.traps = v
+        if v then
+            esp.enabled = true
+            ensureEspRenderLoop()
+        end
+    end
 })
 EggEspSub:AddToggle({
     Name = "Show Mutated / Rare Eggs Only", Default = false, Flag = "esp_eggs_rare_only",
@@ -3305,47 +3309,6 @@ if not Window then
 end
 CreateHubUI()
 
-local function ForceIdleDefaults()
-    autoStealEnabled = false
-    stealGraceUntil = 0
-    stealInProgress = false
-    autoHatchEnabled = false
-    autoPlantEnabled = false
-    autoUpgradeBase = false
-    autoUpgradeTreadmill = false
-    autoTrainSpeed = false
-    autoBuyTrails = false
-    autoEquipBestPets = false
-    autoClaimRewards = false
-    autoSellPets = false
-    autoSellEggs = false
-    batAuraEnabled = false
-    avoidTrapsEnabled = false
-    noKnockbackEnabled = false
-    antiRagdollEnabled = false
-    walkSpeedEnabled = false
-    jumpPowerEnabled = false
-    infiniteJump = false
-    antiAFK = false
-    if type(esp) == "table" then esp.enabled = false end
-    if type(Boss) == "table" then
-        Boss.autoJoin = false
-        Boss.autoFight = false
-        Boss.autoMastery = false
-        Boss.hazardImmune = false
-    end
-    pcall(stopFly)
-    pcall(stopEspRenderLoop)
-    pcall(syncMoveStepLoop)
-    pcall(stopInfJumpLoop)
-    pcall(stopAntiRagLoop)
-end
-ForceIdleDefaults()
-task.delay(1.4, function()
-    if HUB.dead then return end
-    ForceIdleDefaults()
-end)
-
 end -- InitHubFeatures
 
 HUB.booted = false
@@ -3401,6 +3364,11 @@ HUB.Unload = function()
 
     pcall(function()
         if Window and Window.Destroy then Window:Destroy() end
+    end)
+    pcall(function()
+        local pg = LP and LP:FindFirstChild("PlayerGui")
+        local f = pg and pg:FindFirstChild("TrackLabels")
+        if f then f:Destroy() end
     end)
     pcall(function()
         local g = getgenv()

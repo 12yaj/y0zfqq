@@ -1,6 +1,6 @@
 --[[
-  y0zfqq HTTP boot — build 22
-  Jane tarzi: Libary + aa.lua TEK loadstring. Orijinal menu. Hook/GC yok (aa.lua icinde silindi).
+  y0zfqq giris — build 23
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?" .. os.time()))()
 ]]
 
 if typeof(getgenv) ~= "function" then getgenv = function() return _G end end
@@ -11,7 +11,7 @@ local GITHUB_USER   = g.OxideGitHubUser   or "12yaj"
 local GITHUB_REPO   = g.OxideGitHubRepo   or "y0zfqq"
 local GITHUB_BRANCH = g.OxideGitHubBranch or "main"
 local GITHUB_FOLDER = g.OxideGitHubFolder or ""
-local CACHE_VER     = "22"
+local CACHE_VER     = "23"
 
 local function buildRawBase()
     if type(g.OxideGitHubRaw) == "string" and #g.OxideGitHubRaw > 10 then
@@ -149,7 +149,7 @@ end)
 
 applyFlags(pg)
 
-log("[y0zfqq] HTTP boot 22 — Libary+hub tek parca, orijinal menu")
+log("[y0zfqq] HTTP boot 23 — orijinal menu, ESP PlayerGui")
 
 local libSrc, libErr = fetchScript("Libary.lua")
 if not libSrc then
@@ -168,9 +168,9 @@ end
 
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 log("[y0zfqq] aa build", tostring(hubBuild), "| Libary", #libSrc, "byte")
-if not hubBuild or hubBuild < 22 then
+if not hubBuild or hubBuild < 23 then
     bootErr(
-        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 22+.\n"
+        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 23+.\n"
         .. "aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua REPLACE."
     )
     return
