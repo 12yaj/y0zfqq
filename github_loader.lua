@@ -1,9 +1,6 @@
 --[[
-  y0zfqq — GitHub Raw loader (build 19+)
-  Tek hub loadstring: aa.lua (minimal UI). aa_idle + Libary HTTP yolu KAPALI (BAC-1518).
-
-  getgenv().y0zfqqUseIdleLoader = true  → eski idle + Libary yolu (riskli)
-  getgenv().y0zfqqMinimalUi = false     → tam Libary (readfile b.lua kullan)
+  y0zfqq HTTP boot — build 22
+  Jane tarzi: Libary + aa.lua TEK loadstring. Orijinal menu. Hook/GC yok (aa.lua icinde silindi).
 ]]
 
 if typeof(getgenv) ~= "function" then getgenv = function() return _G end end
@@ -14,6 +11,7 @@ local GITHUB_USER   = g.OxideGitHubUser   or "12yaj"
 local GITHUB_REPO   = g.OxideGitHubRepo   or "y0zfqq"
 local GITHUB_BRANCH = g.OxideGitHubBranch or "main"
 local GITHUB_FOLDER = g.OxideGitHubFolder or ""
+local CACHE_VER     = "22"
 
 local function buildRawBase()
     if type(g.OxideGitHubRaw) == "string" and #g.OxideGitHubRaw > 10 then
@@ -31,6 +29,11 @@ local function buildRawBase()
 end
 
 local RAW_BASE = buildRawBase()
+
+local function log(...)
+    if g.y0zfqqQuiet == true then return end
+    print(...)
+end
 
 local function bootErr(msg)
     warn("[y0zfqq] " .. tostring(msg))
@@ -71,7 +74,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=21&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=" .. CACHE_VER .. "&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -85,71 +88,11 @@ local function fetchScript(fileName)
     return body, url
 end
 
-local HTTP_LITE_STUB = [[
--- HTTP: AC/hook kodu bytecode'dan cikarildi (BAC-105110)
-local function oxideEnv()
-    if typeof(getgenv) == "function" then return getgenv() end
-    return _G
-end
-local function shouldSkipHeavyAC() return true end
-local function shouldUseBacSpoof() return false end
-local function allowClientEggCalls()
-    local g = oxideEnv()
-    return g.y0zfqqAllowClientEggApi == true or g.OxideAllowClientEggApi == true
-end
-local function useRemoteOnlyEggPipeline()
-    local g = oxideEnv()
-    if g.y0zfqqRemoteOnly == false or g.OxideRemoteOnly == false then return false end
-    return true
-end
-local function shouldRequireGameDataModules()
-    if useRemoteOnlyEggPipeline() and not allowClientEggCalls() then return false end
-    local g = oxideEnv()
-    if g.y0zfqqRequireGameData == true or g.OxideRequireGameData == true then return true end
-    return allowClientEggCalls()
-end
-local function shouldRunEvidenceScrub() return false end
-local function shouldStartHubRuntimeLayers() return false end
-local function startHubRuntimeLayers() end
-local bacHookInstalled = false
-local HookFn = nil
-]]
-
-local function cutBetweenMarkers(src, startNeedle, endNeedle, insert)
-    local a = src:find(startNeedle, 1, true)
-    local b = src:find(endNeedle, 1, true)
-    if not a or not b or b <= a then return src, false end
-    local pre = src:sub(1, a - 1)
-    local sep = pre:find("\n%-%- =+=%-%-\n", 1, true)
-    if sep then a = sep + 1 end
-    local sep2 = src:sub(1, b - 1):find("\n%-%- =+=%-%-\n", 1, true)
-    if sep2 and sep2 < b then b = sep2 + 1 end
-    return src:sub(1, a - 1) .. (insert or "") .. src:sub(b), true
-end
-
-local function stripHttpHubSource(src)
-    local out = src
-    local ok1
-    out, ok1 = cutBetweenMarkers(
-        out,
-        "CLIENT AC NEUTRALIZER & UGI",
-        "CHARACTER & MOVEMENT HELPERS",
-        HTTP_LITE_STUB .. "\n\n-- ==============================================================================\n-- CHARACTER & MOVEMENT HELPERS\n-- ==============================================================================\n"
-    )
-    local ok2
-    out, ok2 = cutBetweenMarkers(
-        out,
-        "BAC TELEMETRY PACKET SPOOFER",
-        "GAME NETWORKING & MODULE INTEGRATION",
-        "\n-- ==============================================================================\n-- GAME NETWORKING & MODULE INTEGRATION\n-- ==============================================================================\n"
-    )
-    if g.y0zfqqQuiet ~= true and (ok1 or ok2) then
-        print("[y0zfqq] HTTP lite strip OK (hook/GC imzasi yok)")
-    end
-    return out
-end
-
-local function applySecureHubFlags()
+local function applyFlags(playerGui)
+    g.y0zfqqRawBase = RAW_BASE
+    g.y0zfqqHttpBoot = true
+    g.y0zfqqMinimalUi = false
+    g.OxideMinimalUi = false
     g.y0zfqqAllowClientEggApi = false
     g.OxideAllowClientEggApi = false
     g.y0zfqqRemoteOnly = true
@@ -165,120 +108,92 @@ local function applySecureHubFlags()
     g.OxideEnableHubLayers = false
     g.y0zfqqAllowEggRemotes = false
     g.y0zfqqOpenMenuAfterLoad = true
+    g.y0zfqqOpenMenuNow = false
     g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 0
-end
-
-local function runHubAa(hubSrc)
-    applySecureHubFlags()
-    if g.y0zfqqMinimalUi ~= false then
-        hubSrc = stripHttpHubSource(hubSrc)
-    end
-    local prefix = "-- y0zfqq HTTP minimal\n"
-    local runHub, errH = loadstring(prefix .. hubSrc, "aa.lua@HTTP")
-    if not runHub then
-        bootErr("aa derleme: " .. tostring(errH))
-        return false
-    end
-    local okH, runErr = pcall(runHub)
-    if not okH then
-        bootErr("aa calismadi:\n" .. tostring(runErr))
-        return false
-    end
-    return true
-end
-
-local function bootMinimalHttp(hubSrc)
-    g.y0zfqqRawBase = RAW_BASE
-
-    local dwell = tonumber(g.y0zfqqJoinDwellSec)
-    if dwell == nil then dwell = 22 end
-    dwell = math.clamp(dwell, 0, 120)
-    if dwell > 0 then
-        if g.y0zfqqQuiet ~= true then
-            print("[y0zfqq] sunucu nefesi", dwell, "sn (coklu loadstring onleme)...")
-        end
-        local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
-        if not lp.Character then lp.CharacterAdded:Wait() end
-        task.wait(dwell)
-    end
-
-    return runHubAa(hubSrc)
-end
-
-local function bootIdleLegacy(hubSrc)
-    local idleSrc, idleErr = fetchScript("aa_idle.lua")
-    if not idleSrc then
-        bootErr("aa_idle: " .. tostring(idleErr))
-        return false
-    end
-    local runIdle, compileIdle = loadstring(idleSrc, "aa_idle.lua@HTTP")
-    if not runIdle then
-        bootErr("aa_idle derleme: " .. tostring(compileIdle))
-        return false
-    end
-    local okI, runErr = pcall(runIdle)
-    if not okI then
-        bootErr("aa_idle: " .. tostring(runErr))
-        return false
-    end
-    return true
+    g.OxideForcePC = (g.OxideForcePC ~= false)
+    g.OxideUsePlayerGui = true
+    g.OxideKickSafe = (g.OxideKickSafe ~= false)
+    g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
+    g.OxideDisableTags = true
+    g.y0zfqqStealthGui = (g.y0zfqqStealthGui == true)
+    g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
+    g.OxideAutoLoadConfig = false
+    g.y0zfqqAutoLoadConfig = false
+    g.OxideCreateWindowOpts = {
+        Mobile = false,
+        Parent = playerGui,
+        LoadingAnimation = true,
+        LoadingDuration = 1.15,
+        DisplayOrder = 100,
+        SkipTagSystem = true,
+        AutoLoad = false,
+        ConfigName = "y0zfqq_steal",
+        GuiName = "SettingsUI",
+        Name = "y0zfqq | Steal an Egg",
+    }
 end
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local pg = lp:WaitForChild("PlayerGui", 20)
 if not pg then bootErr("PlayerGui yok."); return end
+if not lp.Character then lp.CharacterAdded:Wait() end
 
 pcall(function()
-    local p = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
-    if p and type(p.Unload) == "function" then p.Unload() end
+    local prev = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
+    if typeof(getgenv) == "function" then
+        prev = prev or getgenv().__y0zfqqHub
+    end
+    if prev and type(prev.Unload) == "function" then prev.Unload() end
 end)
 
-g.y0zfqqRawBase = RAW_BASE
+applyFlags(pg)
+
+log("[y0zfqq] HTTP boot 22 — Libary+hub tek parca, orijinal menu")
+
+local libSrc, libErr = fetchScript("Libary.lua")
+if not libSrc then
+    libSrc, libErr = fetchScript("Library.lua")
+end
+if not libSrc then
+    bootErr("Libary.lua: " .. tostring(libErr))
+    return
+end
 
 local hubSrc, hubErr = fetchScript("aa.lua")
 if not hubSrc then
     bootErr("aa.lua: " .. tostring(hubErr))
     return
 end
+
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-if g.y0zfqqQuiet ~= true then
-    print("[y0zfqq] aa build", tostring(hubBuild), "| minimal HTTP yolu")
-end
-if not hubBuild or hubBuild < 21 then
+log("[y0zfqq] aa build", tostring(hubBuild), "| Libary", #libSrc, "byte")
+if not hubBuild or hubBuild < 22 then
     bootErr(
-        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 21+.\n"
-        .. "aa.lua, github_loader.lua, y0zfqq_bootstrap.lua, y0zfqq.lua REPLACE."
+        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 22+.\n"
+        .. "aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua REPLACE."
     )
     return
 end
 
-if g.y0zfqqUseIdleLoader ~= true then
-    g.y0zfqqHttpBoot = true
-    g.y0zfqqMinimalUi = (g.y0zfqqMinimalUi ~= false)
+local combined = table.concat({
+    "local Library = (function()\n",
+    libSrc,
+    "\nend)()\n",
+    "if type(Library) ~= \"table\" or type(Library.CreateWindow) ~= \"function\" then\n",
+    "  error(\"[y0zfqq] Library donmedi\")\n",
+    "end\n",
+    hubSrc,
+})
+
+local runHub, errH = loadstring(combined, "y0zfqq@hub22")
+if not runHub then
+    bootErr("hub derleme: " .. tostring(errH))
+    return
 end
 
-local bootSrc = fetchScript("y0zfqq_bootstrap.lua")
-local bootFn = bootSrc and loadstring(bootSrc, "y0zfqq_bootstrap.lua")
-if bootFn then
-    local okBoot, applyEnv = pcall(bootFn)
-    if okBoot and type(applyEnv) == "function" then
-        applyEnv(g, pg)
-    end
-end
-if not g.OxideCreateWindowOpts then
-    g.OxideCreateWindowOpts = {
-        Mobile = false, Parent = pg, DisplayOrder = 100,
-        SkipTagSystem = true, AutoLoad = false, ConfigName = "y0zfqq_steal",
-    }
-end
-
-if g.y0zfqqUseIdleLoader == true then
-    g.y0zfqqMinimalUi = false
-    if g.y0zfqqQuiet ~= true then
-        warn("[y0zfqq] ESKI idle+Libary yolu — BAC-1518 riski")
-    end
-    bootIdleLegacy(hubSrc)
-else
-    bootMinimalHttp(hubSrc)
+local okH, runErr = pcall(runHub)
+if not okH then
+    bootErr("hub calismadi:\n" .. tostring(runErr))
+    return
 end

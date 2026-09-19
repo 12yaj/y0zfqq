@@ -1,71 +1,55 @@
-﻿--[[ y0zfqq — ortak getgenv ayarlari (b.lua / paste_this_pc readfile ile yukler) ]]
+﻿--[[ y0zfqq — ortak getgenv ayarlari ]]
 return function(g, playerGui)
     g.OxideForcePC = (g.OxideForcePC ~= false)
     g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad == true)
     g.OxideDeferLoad = (g.OxideDeferLoad == true)
     g.y0zfqqJoinGrace = (g.y0zfqqJoinGrace == true)
-    g.OxideJoinGrace = (g.y0zfqqJoinGrace == true)
+    g.OxideJoinGrace = (g.OxideJoinGrace == true)
     g.y0zfqqJoinGraceSec = g.y0zfqqJoinGraceSec or 15
     g.OxideJoinGraceSec = g.OxideJoinGraceSec or g.y0zfqqJoinGraceSec
-    g.y0zfqqStealthGui = (g.y0zfqqStealthGui ~= false)
+    g.y0zfqqStealthGui = (g.y0zfqqStealthGui == true)
     g.y0zfqqHideGlobals = (g.y0zfqqHideGlobals ~= false)
     g.OxideUsePlayerGui = true
     g.OxideKickSafe = (g.OxideKickSafe ~= false)
     g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-    -- PC GitHub: GC/filtergc + hook = 2513/9513. Kapali (PhoneParity ile birlikte aa.lua da atlar)
-    g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-    -- BAC hook varsayilan KAPALI — acarsan 9513/2513 riski (sadece idle kick icin opt-in)
-    g.y0zfqqDisableBacSpoof = (g.y0zfqqDisableBacSpoof ~= false)
-    g.OxideDisableBacSpoof = (g.OxideDisableBacSpoof ~= false)
-    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
-    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
-    g.OxideBacSpoofDelay = g.OxideBacSpoofDelay or 18
-    g.y0zfqqBacSpoofDelay = g.y0zfqqBacSpoofDelay or g.OxideBacSpoofDelay
-    g.OxideDisableTags = (g.OxideDisableTags ~= false)
+    g.OxideSkipACNeutralizer = true
+    g.y0zfqqDisableBacSpoof = true
+    g.OxideDisableBacSpoof = true
+    g.y0zfqqEnableBacSpoof = false
+    g.OxideEnableBacSpoof = false
+    g.OxideDisableTags = true
     g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
-    g.y0zfqqRemoteOnly = (g.y0zfqqRemoteOnly ~= false)
-    g.OxideRemoteOnly = (g.OxideRemoteOnly ~= false)
-    g.y0zfqqAllowClientEggApi = (g.y0zfqqAllowClientEggApi == true)
-    g.OxideAllowClientEggApi = (g.OxideAllowClientEggApi == true)
+    g.y0zfqqRemoteOnly = true
+    g.OxideRemoteOnly = true
+    g.y0zfqqAllowClientEggApi = false
+    g.OxideAllowClientEggApi = false
     if g.y0zfqqMenuKey == nil and g.OxideMenuKey == nil then
         g.y0zfqqMenuKey = Enum.KeyCode.Insert
     end
-    -- Evidence scrub: remote-only modda zaten calismaz; acik bayrak GC taramasi = ek kick
-    g.y0zfqqDisableEvidenceScrub = (g.y0zfqqDisableEvidenceScrub ~= false)
-    g.OxideDisableEvidenceScrub = (g.OxideDisableEvidenceScrub ~= false)
-    -- Hub acilinca hook/GC katmanlari varsayilan kapali (Insert sonrasi 9513)
-    g.y0zfqqEnableHubLayers = (g.y0zfqqEnableHubLayers == true)
-    g.OxideEnableHubLayers = (g.OxideEnableHubLayers == true)
-    g.OxideAutoGuard = (g.OxideAutoGuard == true)
-    g.y0zfqqAutoGuard = (g.y0zfqqAutoGuard == true)
-    g.OxideAutoLoadConfig = (g.OxideAutoLoadConfig == true)
-    g.y0zfqqAutoLoadConfig = (g.y0zfqqAutoLoadConfig == true)
-    -- Jane tarzi: inject sonrasi menu (Insert/.y0z yok). Kapatmak icin: getgenv().y0zfqqDirectMenu = false
+    g.y0zfqqDisableEvidenceScrub = true
+    g.OxideDisableEvidenceScrub = true
+    g.y0zfqqEnableHubLayers = false
+    g.OxideEnableHubLayers = false
+    g.OxideAutoGuard = false
+    g.y0zfqqAutoGuard = false
+    g.OxideAutoLoadConfig = false
+    g.y0zfqqAutoLoadConfig = false
+    g.y0zfqqMinimalUi = false
+    g.OxideMinimalUi = false
     g.y0zfqqDirectMenu = (g.y0zfqqDirectMenu ~= false)
-    g.OxideDirectMenu = (g.OxideDirectMenu ~= false)
-    g.y0zfqqLazyInject = (g.y0zfqqLazyInject == true)
-    g.OxideLazyInject = (g.OxideLazyInject == true)
-    if g.y0zfqqHttpBoot == true then
-        g.y0zfqqMinimalUi = (g.y0zfqqMinimalUi ~= false)
-        g.y0zfqqOpenMenuAfterLoad = true
-        g.y0zfqqMenuGraceAfterLoad = g.y0zfqqMenuGraceAfterLoad or 0
-        g.y0zfqqJoinDwellSec = g.y0zfqqJoinDwellSec or 22
-    elseif g.y0zfqqDirectMenu then
-        g.y0zfqqOpenMenuAfterLoad = (g.y0zfqqOpenMenuAfterLoad ~= false)
-        g.y0zfqqMenuGraceAfterLoad = g.y0zfqqMenuGraceAfterLoad or 0
-        g.y0zfqqHubLoadGraceSec = g.y0zfqqHubLoadGraceSec or 0
-        g.y0zfqqHubSplitGraceSec = g.y0zfqqHubSplitGraceSec or 0
-        g.y0zfqqDirectMenuDelaySec = g.y0zfqqDirectMenuDelaySec or 4
-    end
+    g.y0zfqqOpenMenuAfterLoad = true
+    g.y0zfqqMenuGraceAfterLoad = g.y0zfqqMenuGraceAfterLoad or 0
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
         Parent = playerGui,
         LoadingAnimation = true,
-        LoadingDuration = 0.9,
+        LoadingDuration = 1.15,
         DisplayOrder = 100,
         SkipTagSystem = true,
         AutoLoad = false,
         ConfigName = "y0zfqq_steal",
+        GuiName = "SettingsUI",
+        Name = "y0zfqq | Steal an Egg",
     }
     if playerGui then
         g.OxideCreateWindowOpts.Parent = g.OxideCreateWindowOpts.Parent or playerGui

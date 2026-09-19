@@ -6,11 +6,6 @@ local function oxideEnvEarly()
     return _G
 end
 
-local function useMinimalUi()
-    local g = oxideEnvEarly()
-    return g.y0zfqqMinimalUi == true or g.OxideMinimalUi == true
-end
-
 local function hubLog(...)
     local g = oxideEnvEarly()
     if g.y0zfqqQuiet == true or g.OxideQuiet == true then return end
@@ -24,8 +19,8 @@ if not Library then
     end
     Library = Library or _G.y0zfqqLib or _G.OxideLib
 end
-if not useMinimalUi() and (not Library or type(Library.CreateWindow) ~= "function") then
-    error("[y0zfqq] Library bulunamadi. PC: readfile('b.lua') veya github_loader (minimal).")
+if not Library or type(Library.CreateWindow) ~= "function" then
+    error("[y0zfqq] Library bulunamadi. github_loader veya readfile('b.lua') kullan.")
 end
 
 if not game:IsLoaded() then
@@ -56,18 +51,18 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 21 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 22 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
 local windowOpts = {
     Name = "y0zfqq | Steal an Egg",
-    LoadingAnimation = false,
+    LoadingAnimation = true,
     LoadingText = "y0zfqq",
     LoadingSubtitle = "HUB",
     LoadingFooter = "y0zfqq HUB",
     BrandSubtitle = "y0zfqq · Steal an Egg",
-    LoadingDuration = 0.15,
+    LoadingDuration = 1.15,
     Mobile = false,
     GuiName = "PlayerMenuUI",
     DisplayOrder = 100,
@@ -113,17 +108,15 @@ local function resolveMenuKeyCode()
     if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then return k end
     return Enum.KeyCode.Insert
 end
-hubLog("[y0zfqq] aa build", HUB.build, useMinimalUi() and "- minimal UI (Jane)" or "- Libary UI | Insert")
+hubLog("[y0zfqq] aa build", HUB.build)
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
 -- ==============================================================================
-local HAS_CONFIG = false
-if not useMinimalUi() and type(Library) == "table" then
-    HAS_CONFIG = type(Library.SaveConfig) == "function"
-        and type(Library.LoadConfig) == "function"
-        and type(Library.ListConfigs) == "function"
-end
+local HAS_CONFIG = type(Library) == "table"
+    and type(Library.SaveConfig) == "function"
+    and type(Library.LoadConfig) == "function"
+    and type(Library.ListConfigs) == "function"
 local CONFIG_NAME = "y0zfqq_steal"
 
 local dropdownResync = {}
@@ -169,7 +162,7 @@ local function InstallCarryPromptBoost()
 end
 
 local function shouldShieldPurchasePrompt()
-    local g = oxideEnv()
+    local g = oxideEnvEarly()
     return g.y0zfqqPurchaseShield == true or g.OxidePurchaseShield == true
 end
 
@@ -189,11 +182,7 @@ pcall(function()
     end))
 end)
 
-local StarterGui = game:GetService("StarterGui")
 local function Notify(title, content, kind, dur)
-    if useMinimalUi() then
-        return
-    end
     if not Window or type(Window.Notify) ~= "function" then
         return
     end
@@ -212,78 +201,24 @@ local function safeCallback(fn)
 end
 
 -- ==============================================================================
--- CLIENT AC NEUTRALIZER & UGI CONSTANT WIPER (Layer 1 + Layer 2)
+-- PC runtime: no executor hook / heap scan bytecode in this chunk
 -- ==============================================================================
-local function bypassClientDetections()
-    if typeof(filtergc) ~= "function" or typeof(debug) ~= "table" or typeof(debug.getupvalues) ~= "function" then
-        return false, "no filtergc"
-    end
-    local ok, fn = pcall(function()
-        return filtergc("function", {
-            Constants = { "gmatch", "GetFullName" },
-        }, true)
-    end)
-    if not ok or type(fn) ~= "function" then
-        return false, "filter miss"
-    end
-    local setMeta = (typeof(setrawmetatable) == "function" and setrawmetatable)
-        or (typeof(setmetatable) == "function" and setmetatable)
-    if not setMeta then
-        return false, "no setmeta"
-    end
-    local blocked = 0
-    local okUv, ups = pcall(debug.getupvalues, fn)
-    if not okUv or type(ups) ~= "table" then
-        return false, "no upvalues"
-    end
-    for _, tbl in pairs(ups) do
-        if typeof(tbl) == "table" then
-            local okSet = pcall(setMeta, tbl, {
-                __newindex = function() end,
-            })
-            if okSet then
-                blocked = blocked + 1
-            end
-        end
-    end
-    return blocked > 0, blocked
-end
-
 local function oxideEnv()
     if typeof(getgenv) == "function" then return getgenv() end
     return _G
 end
 
 local function shouldSkipHeavyAC()
-    local g = oxideEnv()
-    if g.OxideSkipACNeutralizer == true then return true end
-    -- Telefondaki resmi loader daha az hook/GC kullanir; PC'de ayni sekilde dene (kick azalir)
-    if g.OxideForcePC == true and g.OxidePhoneParity ~= false then return true end
+    return true
+end
+
+local function shouldUseBacSpoof()
     return false
 end
 
--- BAC-2513: hookfunction tespiti (gecikmeli bile). BAC-3517: spoof kapali idle — sadece opt-in.
-local function shouldUseBacSpoof()
-    local g = oxideEnv()
-    if g.OxideDisableBacSpoof == true or g.y0zfqqDisableBacSpoof == true then
-        return false
-    end
-    if g.y0zfqqBacSpoof == false or g.OxideBacSpoof == false then
-        return false
-    end
-    if g.OxideForcePC == true and g.y0zfqqEnableBacSpoof ~= true and g.OxideEnableBacSpoof ~= true then
-        return false
-    end
-    return g.OxideEnableBacSpoof == true or g.y0zfqqEnableBacSpoof == true
-end
-
--- BAC-5516 / PlacedEggRenderer: client EggState.* cagrilari executor context'te patlar
 local function allowClientEggCalls()
     local g = oxideEnv()
-    if g.y0zfqqAllowClientEggApi == true or g.OxideAllowClientEggApi == true then
-        return true
-    end
-    return false
+    return g.y0zfqqAllowClientEggApi == true or g.OxideAllowClientEggApi == true
 end
 
 local function useRemoteOnlyEggPipeline()
@@ -294,7 +229,6 @@ local function useRemoteOnlyEggPipeline()
     return true
 end
 
--- Executor'dan require(RS.Data.*) PersonalityCatalog vb. kirar -> konsol kirmizi + BAC-8512
 local function shouldRequireGameDataModules()
     if useRemoteOnlyEggPipeline() and not allowClientEggCalls() then
         return false
@@ -307,476 +241,18 @@ local function shouldRequireGameDataModules()
 end
 
 local function shouldRunEvidenceScrub()
-    local g = oxideEnv()
-    if g.y0zfqqDisableEvidenceScrub == true or g.OxideDisableEvidenceScrub == true then
-        return false
-    end
-    if useRemoteOnlyEggPipeline() then
-        return false
-    end
-    return true
+    return false
 end
 
--- ══════════════════════════════════════════════════════════════════════════════
--- CLIENT AC NEUTRALIZER — LAYER 2-5 (GC HEAP SCANS)
--- ══════════════════════════════════════════════════════════════════════════════
--- PHONE FIX - why mobile crashed right at "execute": each of these four passes
--- walks the ENTIRE GC heap, and running all four back-to-back *synchronously at
--- script load* froze the client for seconds. Desktop executors got through it
--- before the client noticed, phone executors got killed by the watchdog.
--- The identical work now runs in a single background task in small slices,
--- releasing the client between slices. Same neutralization, no startup freeze.
---
--- Shared heap scanner: walks the GC heap in small slices, yields to the client
--- between them, and frees refs as it goes so the whole heap is never pinned.
--- A step returning `true` stops the scan early.
-local function ScanGCHeap(step, perChunk)
-    local scan = getgc or (debug and debug.getgc)
-    if type(scan) ~= "function" then return end
-    local ok, objects = pcall(scan, true)
-    if not ok or type(objects) ~= "table" then return end
-    perChunk = perChunk or 400
-    for i = 1, #objects do
-        local obj = objects[i]
-        objects[i] = nil
-        local okStep, stop = pcall(step, obj)
-        if okStep and stop == true then return end
-        if i % perChunk == 0 then task.wait() end
-    end
-end
-
-local AcSlices = {}
-do
-
-    -- Layer 2: Runtime AC Detection Table Freezer (neutralizes violation storage)
-    function AcSlices.FreezeTables()
-        local setmeta = setrawmetatable or setmetatable
-        local getmeta = getrawmetatable or getmetatable
-        if not setmeta then return end
-        ScanGCHeap(function(obj)
-            if typeof(obj) ~= "table" or (getmeta and getmeta(obj)) then return end
-            local mainrun = false
-            for _, v in pairs(obj) do
-                if v == obj then
-                    mainrun = true
-                    break
-                end
-            end
-            if not mainrun then return end
-            for _, v in pairs(obj) do
-                if typeof(v) == "number" and v >= 1 and v <= 3 and obj[v] == nil then
-                    pcall(setmeta, obj, { __newindex = function() end })
-                    break
-                end
-            end
-        end)
-    end
-
-    -- Layer 2b: UGI Constant Wiper (neutralizes ReplicatedFirst.UGI watchdog)
-    function AcSlices.WipeUGI()
-        local getconstants = getconstants or (debug and debug.getconstants)
-        local setconstant = setconstant or (debug and debug.setconstant)
-        local islclosure = islclosure or function(Function)
-            return not pcall(setfenv, getfenv(Function))
-        end
-        if not (getconstants and setconstant and debug and debug.info) then return end
-        ScanGCHeap(function(Function)
-            if typeof(Function) ~= "function" or not islclosure(Function) then return end
-            local ok, Source = pcall(debug.info, Function, "s")
-            if not ok or type(Source) ~= "string" then return end
-            if not Source:find("ReplicatedFirst", 1, true) or not Source:find("UGI", 1, true) then return end
-            local okC, Constants = pcall(getconstants, Function)
-            if not okC or type(Constants) ~= "table" then return end
-            for Index, Constant in next, Constants do
-                if type(Constant) == "string" and Constant == "Humanoid" then
-                    pcall(setconstant, Function, Index, "")
-                end
-            end
-        end)
-    end
-
-    -- Layer 3: X-14 Stack Scrubber & Token Neutralizer
-    function AcSlices.ScrubX14()
-        local getconstants = getconstants or (debug and debug.getconstants)
-        local islclosure = islclosure or function(fn) return not pcall(setfenv, getfenv(fn)) end
-        local HookFn = hookfunction or replaceclosure or hookfunc
-        if not (getconstants and HookFn and debug and debug.getstack and debug.setstack) then return end
-        ScanGCHeap(function(fn)
-            if typeof(fn) ~= "function" or not islclosure(fn) then return end
-            local ok, consts = pcall(getconstants, fn)
-            if not ok or type(consts) ~= "table" or not table.find(consts, "X-14") then return end
-            local cb = nil
-            pcall(function()
-                cb = HookFn(fn, function(...)
-                    local stack = debug.getstack(1)
-                    if type(stack) == "table" then
-                        for idx, val in pairs(stack) do
-                            if val == "X-14" then
-                                pcall(debug.setstack, 1, idx, nil)
-                            end
-                        end
-                    end
-                    if cb then return cb(...) end
-                end)
-            end)
-        end)
-    end
-
-    -- Layer 4: Anti-Tamper State Table Sanitizer (19-upvalue detection)
-    function AcSlices.SanitizeState()
-        local islclosure = islclosure or function(v) return not pcall(setfenv, getfenv(v)) end
-        local getupvalues = getupvalues or (debug and debug.getupvalues)
-        local getupvalue = getupvalue or (debug and debug.getupvalue)
-        local setupvalue = setupvalue or (debug and debug.setupvalue)
-        local clonefunction = clonefunction or function(f) return function(...) return f(...) end end
-        if not (getupvalues and getupvalue and setupvalue) then return end
-        ScanGCHeap(function(v)
-            if typeof(v) ~= "function" or not islclosure(v) then return end
-            local ok, upvs = pcall(getupvalues, v)
-            if not ok or type(upvs) ~= "table" or #upvs ~= 19 then return end
-            local ok2, u2 = pcall(getupvalue, v, 2)
-            if not ok2 or typeof(u2) ~= "function" then return end
-            local old = clonefunction(u2)
-            pcall(setupvalue, v, 2, function(a, b)
-                if b and typeof(b) == "table" then
-                    pcall(setmetatable, b, {})
-                end
-                return old(a, b)
-            end)
-        end)
-    end
-end
-
--- ==============================================================================
--- CHARACTER & MOVEMENT HELPERS
--- ==============================================================================
-local function findChar() return LP.Character end
-local function findHum()
-    local ch = LP.Character
-    return ch and ch:FindFirstChildOfClass("Humanoid")
-end
-local function findHRP()
-    local ch = LP.Character
-    return ch and (ch:FindFirstChild("HumanoidRootPart") or ch.PrimaryPart or ch:FindFirstChildWhichIsA("BasePart"))
-end
-
-local function GetRootCFrame()
-    local hrp = findHRP()
-    return hrp and hrp.CFrame
-end
-
--- ==============================================================================
--- BAC TELEMETRY PACKET SPOOFER
--- ==============================================================================
-local bxor = bit32.bxor
-local unpack = table.unpack
-
-local function isGuid(n)
-    return #n==36 and n:sub(9,9)=="-" and n:sub(14,14)=="-" and n:sub(19,19)=="-" and n:sub(24,24)=="-" and n:gsub("-",""):match("^%x+$")~=nil
-end
-
-local remoteSet, anyRemote = {}, nil
-
-local function scanRemotes()
-    for _, s in ipairs(game:GetChildren()) do
-        local ok, list = pcall(s.GetDescendants, s)
-        if ok and list then
-            for _, o in ipairs(list) do
-                if o:IsA("RemoteEvent") and isGuid(o.Name) then
-                    remoteSet[o] = true
-                    anyRemote = anyRemote or o
-                end
-            end
-        end
-    end
-end
-
-local bacHookInstalled = false
-
-local function parseCounter(v)
-    if type(v) ~= "string" then return end
-    local n = v:match("^X%-(%d+)$")
-    return n and tonumber(n)
-end
-
-local function looksLikeState(t, r)
-    if type(t) ~= "table" then return false end
-    local hR, hM = false, false
-    local ok = pcall(function()
-        for _, v in pairs(t) do
-            if v == r then hR = true
-            elseif type(v) == "string" and v:match("^X%-%d+$") then hM = true end
-        end
-    end)
-    return ok and hR and hM
-end
-
-local function findState(r)
-    for l=2,24 do
-        local _, fn = pcall(debug.info, l, "f")
-        if type(fn) == "function" then
-            local _, ups = pcall(debug.getupvalues, fn)
-            if type(ups) == "table" then
-                for _, v in pairs(ups) do
-                    if looksLikeState(v, r) then return v end
-                    if type(v) == "table" then
-                        local nested
-                        pcall(function()
-                            for _, x in pairs(v) do
-                                if looksLikeState(x, r) then nested = x; return end
-                            end
-                        end)
-                        if nested then return nested end
-                    end
-                end
-            end
-        end
-    end
-end
-
-local function mapState(st, a1, a2)
-    local m = {}
-    for k, v in pairs(st) do
-        if type(v) == "string" then
-            if v:match("^X%-%d+$") then m.marker = m.marker or k
-            elseif a1 and v == a1 then m.arg1 = m.arg1 or k
-            elseif a2 and v == a2 then m.arg2 = m.arg2 or k end
-        end
-    end
-    return m
-end
-
-local model = nil
-
-local function digits(n)
-    n = n % 1000
-    return math.floor(n/100), math.floor(n/10)%10, n%10
-end
-
-local function encode(m, c)
-    local d1, d2, d3 = digits(c)
-    return m.prefix .. string.char(bxor(d1, m.k1), bxor(d2, m.k2), bxor(d3, m.k3))
-end
-
-local function learn(r, a1, a2)
-    local st = findState(r)
-    if not st then return end
-    local map = mapState(st, a1, a2)
-    if not map.marker then return end
-    local c = parseCounter(rawget(st, map.marker))
-    if not c then return end
-    local d1, d2, d3 = digits(c)
-    local m = {
-        state = st, map = map, remote = r,
-        prefix = a1:sub(1, 9),
-        k1 = bxor(a1:byte(10), d1),
-        k2 = bxor(a1:byte(11), d2),
-        k3 = bxor(a1:byte(12), d3),
-        offset = c - os.time(),
-        arg2 = a2
-    }
-    if encode(m, c) == a1 then return m end
-end
-
-local function liveCounter(m)
-    if m.state and m.map.marker then
-        local _, raw = pcall(rawget, m.state, m.map.marker)
-        local c = parseCounter(raw)
-        if c and math.abs((c - os.time()) - m.offset) <= 5 then
-            return c
-        end
-    end
-    return os.time() + m.offset
-end
-
-local function refreshArg2(m)
-    if m.state and m.map.arg2 then
-        local _, v = pcall(rawget, m.state, m.map.arg2)
-        if type(v) == "string" then m.arg2 = v end
-    end
-    return m.arg2
-end
-
-local HookFn = hookfunction or replaceclosure or hookfunc or detour_function
-
-local function installBacTelemetryHook()
-    if bacHookInstalled or HUB.dead or not HookFn or not shouldUseBacSpoof() then
-        return false
-    end
-    scanRemotes()
-    if not anyRemote then
-        return false
-    end
-    local oldFire
-    oldFire = HookFn(anyRemote.FireServer, function(self, ...)
-        local args = table.pack(...)
-        if not remoteSet[self] then
-            return oldFire(self, unpack(args, 1, args.n))
-        end
-
-        local a1 = args[1]
-
-        if type(a1) == "string" and #a1 == 12 then
-            if not model then
-                model = learn(self, a1, args[2])
-            else
-                local c = parseCounter(rawget(model.state, model.map.marker))
-                if c and encode(model, c) ~= a1 then
-                    local m = learn(self, a1, args[2])
-                    if m then m.spoofed = model.spoofed; model = m end
-                end
-            end
-            return oldFire(self, unpack(args, 1, args.n))
-        end
-
-        if model and type(a1) == "string" and #a1 == 4 then
-            local c = liveCounter(model)
-            args[1] = encode(model, c)
-            args[2] = refreshArg2(model)
-            model.spoofed = (model.spoofed or 0) + 1
-            return oldFire(self, unpack(args, 1, math.max(args.n, 2)))
-        end
-
-        return oldFire(self, unpack(args, 1, args.n))
-    end)
-    bacHookInstalled = true
-    HUB.bacSpoofActive = true
-    return true
-end
-
-local hubRuntimeStarted = false
 local function shouldStartHubRuntimeLayers()
-    local g = oxideEnv()
-    if g.y0zfqqEnableHubLayers == true or g.OxideEnableHubLayers == true then
-        return true
-    end
     return false
 end
 
 local function startHubRuntimeLayers()
-    if hubRuntimeStarted or HUB.dead or not shouldStartHubRuntimeLayers() then return end
-    hubRuntimeStarted = true
+end
 
-    if not shouldSkipHeavyAC() then
-        pcall(bypassClientDetections)
-        task.spawn(function()
-            pcall(AcSlices.FreezeTables)
-            task.wait()
-            pcall(AcSlices.WipeUGI)
-            task.wait()
-            pcall(AcSlices.ScrubX14)
-            task.wait()
-            pcall(AcSlices.SanitizeState)
-        end)
-    end
-
-    if shouldUseBacSpoof() and HookFn then
-        local delaySec = 18
-        pcall(function()
-            local g = oxideEnv()
-            delaySec = tonumber(g.y0zfqqBacSpoofDelay) or tonumber(g.OxideBacSpoofDelay) or delaySec
-        end)
-        task.spawn(function()
-            task.wait(math.clamp(delaySec, 8, 45))
-            if HUB.dead then return end
-            local ok = installBacTelemetryHook()
-            if ok then
-                pcall(function() Notify("y0zfqq", "BAC telemetry hazir (gecikmeli)", "Info", 3) end)
-            end
-            while not HUB.dead do
-                task.wait(10)
-                if bacHookInstalled then
-                    local alive = false
-                    for r in pairs(remoteSet) do
-                        if r:IsDescendantOf(game) then alive = true; break end
-                    end
-                    if not alive then
-                        table.clear(remoteSet)
-                        anyRemote = nil
-                        model = nil
-                        scanRemotes()
-                    end
-                end
-            end
-        end)
-    end
-
-    if shouldRunEvidenceScrub() then
-        task.spawn(function()
-            if not (getgc or (debug and debug.getgc)) then return end
-            local st = nil
-            local misses = 0
-
-            local function findIntegrityTable()
-                local found = nil
-                ScanGCHeap(function(o)
-                    if found then return true end
-                    if type(o) ~= "table" then return end
-                    local hit = false
-                    pcall(function()
-                        hit = (rawget(o, "ValidationLocked") ~= nil and rawget(o, "Evidence") ~= nil)
-                            or (rawget(o, "ThreatLevel") ~= nil and rawget(o, "LastObservedSample") ~= nil)
-                    end)
-                    if hit then
-                        found = o
-                        return true
-                    end
-                end, 250)
-                return found
-            end
-
-            track(LP.CharacterAdded:Connect(function()
-                task.wait(1)
-                st = findIntegrityTable()
-            end))
-
-            while not HUB.dead do
-                if not st then
-                    st = findIntegrityTable()
-                    if not st then
-                        misses = misses + 1
-                        local waitFor = math.min(5 * (2 ^ math.min(misses - 1, 3)), 30)
-                        local slept = 0
-                        while slept < waitFor and not HUB.dead do
-                            task.wait(0.5)
-                            slept = slept + 0.5
-                        end
-                    elseif misses > 0 then
-                        misses = 0
-                    end
-                end
-
-                if st then
-                    pcall(function()
-                        local ev = rawget(st, "Evidence")
-                        if type(ev) == "table" then
-                            for ek, evVal in pairs(ev) do
-                                if type(evVal) == "number" and evVal ~= 0 then
-                                    rawset(ev, ek, 0)
-                                end
-                            end
-                        end
-                        if rawget(st, "ThreatLevel") ~= "Trusted" then rawset(st, "ThreatLevel", "Trusted") end
-                        if rawget(st, "ValidationLocked") == true then rawset(st, "ValidationLocked", false) end
-                        if rawget(st, "FirstSuspiciousAt") ~= nil then rawset(st, "FirstSuspiciousAt", nil) end
-                        if rawget(st, "KickQueued") == true then rawset(st, "KickQueued", false) end
-                        if rawget(st, "TamperScore") ~= nil then rawset(st, "TamperScore", 0) end
-                        if rawget(st, "InvalidHeartbeatCount") ~= nil then rawset(st, "InvalidHeartbeatCount", 0) end
-
-                        local los = rawget(st, "LastObservedSample")
-                        if los ~= nil then
-                            if rawget(st, "LastGameplayTrustedSample") == nil then rawset(st, "LastGameplayTrustedSample", los) end
-                            if rawget(st, "LastValidatedSample") == nil then rawset(st, "LastValidatedSample", los) end
-                            if rawget(st, "LastValidatedGroundedSample") == nil then rawset(st, "LastValidatedGroundedSample", los) end
-                            if rawget(st, "LastConfirmedGroundSample") == nil then rawset(st, "LastConfirmedGroundSample", los) end
-                            if rawget(st, "LastGoodSample") == nil then rawset(st, "LastGoodSample", los) end
-                        end
-                    end)
-                end
-                task.wait(0.2)
-            end
-        end)
-    end
+local function bypassClientDetections()
+    return false
 end
 
 -- ==============================================================================
@@ -931,12 +407,7 @@ local function InitHubFeatures()
     end
     if HUB.dead then return end
 
-    if shouldStartHubRuntimeLayers() then
-        startHubRuntimeLayers()
-    else
-        hubLog("[y0zfqq] hub katmanlari kapali — spoof/GC/scrub yok")
-    end
-    hubLog("[y0zfqq] egg remotes kapali — Auto Steal acinca acilir")
+    startHubRuntimeLayers()
 
 local MAIN_ROAD_Z = -364.5
 
@@ -2475,43 +1946,9 @@ Boss.hazardHook = false
 Boss.hazardHookTried = false
 
 function Boss.InstallHazardHook()
-    if Boss.hazardHook then return true end
-    if Boss.hazardHookTried then return false end
     Boss.hazardHookTried = true
-
-    -- Phone executors crash when a C closure gets hooked, so never do it there.
-    local touchOnly = false
-    pcall(function()
-        touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-    end)
-    if touchOnly then
-        Notify("Boss Hazards", "Hazard immunity is not supported on mobile - the boss can still hit you", "Error")
-        return false
-    end
-
-    local hazard = GetNetRemote("RE/BossEvent/HazardHit")
-    local blackHole = GetNetRemote("RE/BossEvent/BlackHoleHit")
-    for _, remote in ipairs({ hazard, blackHole }) do
-        if type(remote) == "userdata" and remote:IsA("RemoteEvent") then
-            Boss._hazardRemotes[remote] = true
-        end
-    end
-    if not HookFn then return false end
-    if type(hazard) ~= "userdata" or not hazard:IsA("RemoteEvent") then return false end
-
-    local oldFire = hazard.FireServer
-    if type(oldFire) ~= "function" then return false end
-
-    local ok = pcall(function()
-        HookFn(oldFire, function(self, ...)
-            if Boss.hazardImmune and Boss._hazardRemotes[self] then
-                return -- swallow the hazard damage report
-            end
-            return oldFire(self, ...)
-        end)
-    end)
-    Boss.hazardHook = ok
-    return ok
+    Boss.hazardHook = false
+    return false
 end
 
 local function DropHeldEgg()
@@ -2549,16 +1986,6 @@ end
 
 local function SetNoKnockback(enabled)
     noKnockbackEnabled = enabled
-    if enabled then
-        pcall(function()
-            local rigSync = GetNetRemote("RE/RigSync/Refresh")
-            if rigSync and getconnections then
-                for _, conn in ipairs(getconnections(rigSync.OnClientEvent)) do
-                    pcall(function() conn:Disconnect() end)
-                end
-            end
-        end)
-    end
 end
 
 if autoGuardOnLoad() then
@@ -3194,138 +2621,6 @@ local function SetAntiAFK(v)
     end
 end
 
--- Minimal PlayerGui menu (HTTP / Jane — Libary loadstring yok, BAC-1518 azaltir)
-local function CreateMinimalStealGui()
-    local parent = windowOpts.Parent or LP:WaitForChild("PlayerGui")
-    local old = parent:FindFirstChild("y0zfqqMini")
-    if old then old:Destroy() end
-
-    local guiName = windowOpts.GuiName or "PlayerMenuUI"
-    local sg = Instance.new("ScreenGui")
-    sg.Name = guiName
-    sg.ResetOnSpawn = false
-    sg.DisplayOrder = windowOpts.DisplayOrder or 100
-    sg.Enabled = true
-    sg.Parent = parent
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 260, 0, 200)
-    frame.Position = UDim2.new(0, 12, 0, 12)
-    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-    frame.BorderSizePixel = 0
-    frame.Parent = sg
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -16, 0, 28)
-    title.Position = UDim2.new(0, 8, 0, 6)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 15
-    title.TextColor3 = Color3.fromRGB(240, 240, 255)
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Text = "Steal · " .. tostring(HUB.build)
-    title.Parent = frame
-
-    local function makeToggle(y, label, defaultOn, onChange)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -16, 0, 32)
-        btn.Position = UDim2.new(0, 8, 0, y)
-        btn.BackgroundColor3 = defaultOn and Color3.fromRGB(45, 120, 75) or Color3.fromRGB(45, 45, 55)
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        btn.Font = Enum.Font.GothamSemibold
-        btn.TextSize = 14
-        btn.Text = label .. (defaultOn and " [ON]" or " [OFF]")
-        btn.Parent = frame
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        local on = defaultOn
-        btn.MouseButton1Click:Connect(function()
-            on = not on
-            btn.BackgroundColor3 = on and Color3.fromRGB(45, 120, 75) or Color3.fromRGB(45, 45, 55)
-            btn.Text = label .. (on and " [ON]" or " [OFF]")
-            onChange(on)
-        end)
-    end
-
-    makeToggle(38, "Kick-Safe", kickSafeMode, function(v)
-        kickSafeMode = v
-        if v and glideSpeed > KICK_SAFE_MAX_SPEED then glideSpeed = KICK_SAFE_MAX_SPEED end
-        if v and stealDelay < 4.5 then stealDelay = 5.0 end
-        Notify("Kick-Safe", v and "On" or "Off", v and "Success" or "Warning")
-    end)
-
-    makeToggle(76, "Auto Steal", false, safeCallback(function(v)
-        autoStealEnabled = v
-        setEggRemotePipelineEnabled(v)
-        if v then
-            InstallCarryPromptBoost()
-            ensureStealWorker()
-            EnsureSavedReturnPosition()
-            local waitSec = kickSafeMode and 6 or 3
-            stealGraceUntil = os.clock() + waitSec
-            Notify("Auto Steal", ("~%ds sonra baslar"):format(waitSec), "Info")
-        else
-            stealGraceUntil = 0
-        end
-    end))
-
-    local once = Instance.new("TextButton")
-    once.Size = UDim2.new(1, -16, 0, 32)
-    once.Position = UDim2.new(0, 8, 0, 114)
-    once.BackgroundColor3 = Color3.fromRGB(70, 90, 160)
-    once.TextColor3 = Color3.new(1, 1, 1)
-    once.Font = Enum.Font.GothamSemibold
-    once.Text = "Steal best egg once"
-    once.Parent = frame
-    Instance.new("UICorner", once).CornerRadius = UDim.new(0, 6)
-    once.MouseButton1Click:Connect(safeCallback(function()
-        local ok = StealBestEggOnce()
-        Notify("Steal", ok and "Basladi" or "Yumurta yok", ok and "Success" or "Info")
-    end))
-
-    local unload = Instance.new("TextButton")
-    unload.Size = UDim2.new(1, -16, 0, 28)
-    unload.Position = UDim2.new(0, 8, 0, 152)
-    unload.BackgroundColor3 = Color3.fromRGB(120, 45, 45)
-    unload.Text = "Unload"
-    unload.TextColor3 = Color3.new(1, 1, 1)
-    unload.Font = Enum.Font.Gotham
-    unload.Parent = frame
-    Instance.new("UICorner", unload).CornerRadius = UDim.new(0, 6)
-    unload.MouseButton1Click:Connect(function()
-        pcall(function() HUB.Unload() end)
-    end)
-
-    local hint = Instance.new("TextLabel")
-    hint.Size = UDim2.new(1, -16, 0, 18)
-    hint.Position = UDim2.new(0, 8, 0, 178)
-    hint.BackgroundTransparency = 1
-    hint.Text = "Insert = gizle/goster"
-    hint.TextColor3 = Color3.fromRGB(160, 160, 170)
-    hint.TextSize = 12
-    hint.Font = Enum.Font.Gotham
-    hint.Parent = frame
-
-    HUB._miniGui = sg
-    track(UserInputService.InputBegan:Connect(function(input, gp)
-        if gp or HUB.dead then return end
-        if input.KeyCode == resolveMenuKeyCode() then
-            sg.Enabled = not sg.Enabled
-        end
-    end))
-    return {
-        _sg = sg,
-        SetVisible = function(_, vis) sg.Enabled = vis == true end,
-        Toggle = function() sg.Enabled = not sg.Enabled end,
-        Destroy = function() sg:Destroy() end,
-        Notify = function(_, p)
-            if type(p) == "table" then
-                Notify(p.Title or "y0zfqq", p.Content or "", p.Type, p.Duration)
-            end
-        end,
-    }
-end
-
 -- UI (Luau 200 local / fonksiyon — InitHubFeatures icinde)
 local function CreateHubUI()
 local EggsTab     = Window:AddTab({ Name = "Eggs", Subtitle = "Steal, hatch & plant", Icon = "crown" })
@@ -3344,7 +2639,7 @@ local EggEspSub = EggsTab:AddSubTab("Egg Tracker ESP")
 -- SubTab: Auto Steal
 StealSub:AddParagraph({
     Title = "y0zfqq — hizli kurulum",
-    Content = "build 10: inject'te thread/remote/trap YOK. Toggle acinca baslar.\nKick-Safe + Area. Config autoload kapali.",
+    Content = "Kick-Safe + Tween Glide. Auto Steal kapali baslar. Config autoload kapali.",
 })
 StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
@@ -3998,28 +3293,17 @@ ConfigSub:AddButton({
 
     ConfigSub:AddParagraph({
         Title = "y0zfqq | Steal an Egg",
-        Content = "y0zfqq HUB\nBAC-4512 kick: Auto Hatch'i steal ile birlikte acma. Kick-Safe + Tween Glide kullan.\nTelefon modu: GC bypass kapali, BAC spoof acik."
+        Content = "y0zfqq HUB\nKick-Safe + Tween Glide. Auto Hatch'i steal ile birlikte acma."
     })
 end
 
 end -- CreateHubUI
 
-if useMinimalUi() then
-    if not Window then
-        Window = CreateMinimalStealGui()
-        hubLog("[y0zfqq] minimal menu acildi (Libary yok)")
-    end
-else
-    if not Window then
-        Window = Library:CreateWindow(windowOpts)
-        Window:SetVisible(false)
-        task.defer(function()
-            if HUB.dead or not Window then return end
-            pcall(function() Window:SetVisible(true) end)
-        end)
-    end
-    CreateHubUI()
+if not Window then
+    Window = Library:CreateWindow(windowOpts)
+    Window:SetVisible(true)
 end
+CreateHubUI()
 
 local function ForceIdleDefaults()
     autoStealEnabled = false
@@ -4116,7 +3400,6 @@ HUB.Unload = function()
     end
 
     pcall(function()
-        if HUB._miniGui then HUB._miniGui:Destroy() end
         if Window and Window.Destroy then Window:Destroy() end
     end)
     pcall(function()

@@ -171,8 +171,8 @@ if not bootApplied then
     }
 end
 
-local useLazyIdle = (g.y0zfqqLazyInject == true or g.OxideLazyInject == true)
-if useLazyIdle and g.y0zfqqDirectMenu == false then
+local useLazyIdle = false
+if g.y0zfqqLazyInject == true and g.y0zfqqDirectMenu == false then
     local idleSrc, idlePath = readScript({ "aa_idle.lua", "selams/aa_idle.lua" })
     if idleSrc then
         g.y0zfqqRawBase = g.y0zfqqRawBase or g.OxideGitHubRaw
@@ -191,11 +191,14 @@ if useLazyIdle and g.y0zfqqDirectMenu == false then
     end
 end
 
-g.y0zfqqOpenMenuAfterLoad = (g.y0zfqqOpenMenuAfterLoad ~= false)
+g.y0zfqqMinimalUi = false
+g.y0zfqqOpenMenuAfterLoad = true
 g.y0zfqqAllowClientEggApi = false
 g.y0zfqqRemoteOnly = true
 g.y0zfqqEnableHubLayers = false
 g.y0zfqqAllowEggRemotes = false
+g.OxideDisableTags = true
+g.OxideAutoLoadConfig = false
 
 local libSrc, libPath = readScript(FILE_CANDIDATES.lib)
 if not libSrc then
@@ -203,32 +206,20 @@ if not libSrc then
     return
 end
 
-local runLib, libCompileErr = loadChunk(libSrc, libPath)
-if not runLib then
-    showBootstrapError(libCompileErr)
-    return
-end
-
-local libOk, lib = pcall(runLib)
-if not libOk or type(lib) ~= "table" or type(lib.CreateWindow) ~= "function" then
-    showBootstrapError("Libary.lua gecersiz: " .. tostring(lib))
-    return
-end
-_G.OxideLib = lib
-_G.y0zfqqLib = lib
-
 local hubSrc, hubPath = readScript(FILE_CANDIDATES.hub)
 if not hubSrc then
     showBootstrapError(hubPath)
     return
 end
 
-if not hubSrc:find("OxideStealAnEgg", 1, true) then
-    warn("[y0zfqq] aa.lua hub imzasi bulunamadi â€” yine de deneniyor.")
-end
-
-hubSrc = "local Library = _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
-local runHub, hubCompileErr = loadChunk(hubSrc, hubPath or "aa.lua")
+local combined = table.concat({
+    "local Library = (function()\n",
+    libSrc,
+    "\nend)()\n",
+    "if type(Library) ~= \"table\" or type(Library.CreateWindow) ~= \"function\" then error(\"[y0zfqq] Library donmedi\") end\n",
+    hubSrc,
+})
+local runHub, hubCompileErr = loadChunk(combined, "y0zfqq@local22")
 if not runHub then
     showBootstrapError(hubCompileErr)
     return
@@ -236,17 +227,9 @@ end
 
 local hubOk, hubErr = pcall(runHub)
 if not hubOk then
-    showBootstrapError("aa.lua calismadi:\n" .. tostring(hubErr))
+    showBootstrapError("hub calismadi:\n" .. tostring(hubErr))
     return
 end
 
-if g.OxideLoadSimpleFarm == true then
-    local farmSrc, farmPath = readScript({ "a.lua", "selams/a.lua" })
-    if farmSrc then
-        local runFarm = loadChunk(farmSrc, farmPath or "a.lua")
-        if runFarm then pcall(runFarm) end
-    end
-end
-
-print("[y0zfqq] OK — GUI PlayerGui'de. Insert ile gizle/goster.")
+print("[y0zfqq] OK — orijinal menu PlayerGui. Insert gizle/goster.")
 
