@@ -44,7 +44,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 15 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 17 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -800,8 +800,22 @@ end
 
 local eggSnapCache = { t = 0, data = nil }
 local EGG_SNAP_CACHE_SEC = 2.8
+-- BAC-5514/5516: AskFieldEggSnapshot hub acilisinda cagrilmasin — sadece steal/ESP acikken
+local eggRemotesAllowed = false
+local function setEggRemotePipelineEnabled(on)
+    eggRemotesAllowed = (on == true)
+end
+do
+    local g = oxideEnv()
+    if g.y0zfqqAllowEggRemotes == true then
+        eggRemotesAllowed = true
+    end
+end
 
-local function FetchFieldEggSnapshot(forceRefresh, syncRemotes)
+local function FetchFieldEggSnapshot(forceRefresh, syncRemotes, forceRf)
+    if forceRf ~= true and not eggRemotesAllowed then
+        return eggSnapCache.data
+    end
     if not forceRefresh and eggSnapCache.data and (os.clock() - eggSnapCache.t) < EGG_SNAP_CACHE_SEC then
         return eggSnapCache.data
     end
@@ -900,6 +914,7 @@ local function InitHubFeatures()
     else
         print("[y0zfqq] hub katmanlari kapali (BAC-9513) — spoof/GC/scrub yok")
     end
+    print("[y0zfqq] egg remotes kapali (BAC-5514) — Auto Steal/ESP acinca acilir")
 
     if not Window then
         Window = Library:CreateWindow(windowOpts)
@@ -1498,7 +1513,7 @@ local function isBigEgg(record)
 end
 
 local function GetMatchingFieldEggs(areasFilter, raritiesFilter, mutationsFilter)
-    local snapshot = FetchFieldEggSnapshot(true, true)
+    local snapshot = FetchFieldEggSnapshot(true, true, true)
     if not snapshot or not snapshot.Records then return {} end
 
     local matched = {}
@@ -1697,6 +1712,7 @@ local function PlantAllCarriedEggsInPen()
 end
 
 local function StealSpecificEggRobust(targetItem)
+    setEggRemotePipelineEnabled(true)
     if stealInProgress or HUB.dead then return false end
     stealInProgress = true
     local function finishSteal(ok)
@@ -1709,7 +1725,7 @@ local function StealSpecificEggRobust(targetItem)
 
     -- Verify the egg is still present in the latest snapshot before traveling
     do
-        local snap = FetchFieldEggSnapshot(true, true)
+        local snap = FetchFieldEggSnapshot(true, true, true)
         if snap and snap.Records then
             local stillThere = false
             for _, r in ipairs(snap.Records) do
@@ -2069,6 +2085,7 @@ local function StealSpecificEggRobust(targetItem)
 end
 
 local function StealBestEggOnce()
+    setEggRemotePipelineEnabled(true)
     if stealInProgress then return false end
     if kickSafeMode and lastStealFinishAt > 0 and (os.clock() - lastStealFinishAt) < 2.5 then
         return false
@@ -2872,7 +2889,7 @@ local function ensureEspRenderLoop()
 
     -- Eggs ESP
     if esp.eggs then
-        local snap = FetchFieldEggSnapshot()
+        local snap = FetchFieldEggSnapshot(false, false, true)
         local ok = snap ~= nil
         if ok and snap and snap.Records then
             for _, egg in ipairs(snap.Records) do
@@ -3188,6 +3205,7 @@ StealSub:AddToggle({
     Name = "Auto Steal Eggs", Default = false, Flag = "steal_auto",
     Callback = safeCallback(function(v)
         autoStealEnabled = v
+        setEggRemotePipelineEnabled(v)
         if v then
             InstallCarryPromptBoost()
             ensureStealWorker()
@@ -3296,7 +3314,12 @@ EggEspSub:AddToggle({
     Name = "Egg ESP Enabled", Default = false, Flag = "esp_eggs_enabled",
     Callback = safeCallback(function(v)
         esp.enabled = v
-        if v then ensureEspRenderLoop() else stopEspRenderLoop() end
+        if v then
+            setEggRemotePipelineEnabled(true)
+            ensureEspRenderLoop()
+        else
+            stopEspRenderLoop()
+        end
         Notify("Egg ESP", v and "Enabled" or "Disabled", v and "Success" or "Error")
     end)
 })
@@ -3941,5 +3964,10 @@ HUB.Unload = function()
 end
 
 task.defer(function()
-    print("[y0zfqq] build", HUB.build, "hazir — Insert / .y0z (GUI henuz yok)")
+    local g = oxideEnv()
+    if g.y0zfqqOpenMenuAfterLoad == true or g.y0zfqqOpenMenuNow == true or HUB.booted then
+        print("[y0zfqq] build", HUB.build, "hazir — menu aciliyor")
+    else
+        print("[y0zfqq] build", HUB.build, "hazir — Insert / .y0z")
+    end
 end)

@@ -40,6 +40,18 @@ return function(g, playerGui)
     g.y0zfqqAutoGuard = (g.y0zfqqAutoGuard == true)
     g.OxideAutoLoadConfig = (g.OxideAutoLoadConfig == true)
     g.y0zfqqAutoLoadConfig = (g.y0zfqqAutoLoadConfig == true)
+    -- Jane tarzi: inject sonrasi menu (Insert/.y0z yok). Kapatmak icin: getgenv().y0zfqqDirectMenu = false
+    g.y0zfqqDirectMenu = (g.y0zfqqDirectMenu ~= false)
+    g.OxideDirectMenu = (g.OxideDirectMenu ~= false)
+    g.y0zfqqLazyInject = (g.y0zfqqLazyInject == true)
+    g.OxideLazyInject = (g.OxideLazyInject == true)
+    if g.y0zfqqDirectMenu then
+        g.y0zfqqOpenMenuAfterLoad = (g.y0zfqqOpenMenuAfterLoad ~= false)
+        g.y0zfqqMenuGraceAfterLoad = g.y0zfqqMenuGraceAfterLoad or 0
+        g.y0zfqqHubLoadGraceSec = g.y0zfqqHubLoadGraceSec or 0
+        g.y0zfqqHubSplitGraceSec = g.y0zfqqHubSplitGraceSec or 0
+        g.y0zfqqDirectMenuDelaySec = g.y0zfqqDirectMenuDelaySec or 4
+    end
     g.OxideCreateWindowOpts = g.OxideCreateWindowOpts or {
         Mobile = false,
         Parent = playerGui,

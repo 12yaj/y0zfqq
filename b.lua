@@ -171,8 +171,8 @@ if not bootApplied then
     }
 end
 
-local useLazyIdle = (g.y0zfqqLazyInject ~= false and g.OxideLazyInject ~= false)
-if useLazyIdle then
+local useLazyIdle = (g.y0zfqqLazyInject == true or g.OxideLazyInject == true)
+if useLazyIdle and g.y0zfqqDirectMenu == false then
     local idleSrc, idlePath = readScript({ "aa_idle.lua", "selams/aa_idle.lua" })
     if idleSrc then
         g.y0zfqqRawBase = g.y0zfqqRawBase or g.OxideGitHubRaw
@@ -186,10 +186,16 @@ if useLazyIdle then
             showBootstrapError("aa_idle: " .. tostring(runErr))
             return
         end
-        print("[y0zfqq] OK â€” idle inject. Sag Ctrl ile tam hub.")
+        print("[y0zfqq] OK — idle inject. Insert veya .y0z ile menu.")
         return
     end
 end
+
+g.y0zfqqOpenMenuAfterLoad = (g.y0zfqqOpenMenuAfterLoad ~= false)
+g.y0zfqqAllowClientEggApi = false
+g.y0zfqqRemoteOnly = true
+g.y0zfqqEnableHubLayers = false
+g.y0zfqqAllowEggRemotes = false
 
 local libSrc, libPath = readScript(FILE_CANDIDATES.lib)
 if not libSrc then
@@ -242,5 +248,5 @@ if g.OxideLoadSimpleFarm == true then
     end
 end
 
-print("[y0zfqq] OK â€” GUI PlayerGui'de. Sag Ctrl ile ac/kapa.")
+print("[y0zfqq] OK — GUI PlayerGui'de. Insert ile gizle/goster.")
 

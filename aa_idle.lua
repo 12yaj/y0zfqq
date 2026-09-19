@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-local IDLE_BUILD = 15
+local IDLE_BUILD = 17
 
 local function env()
     if typeof(getgenv) == "function" then return getgenv() end
@@ -112,10 +112,12 @@ local function bootFullHub()
     loading = true
 
     local gPre = env()
-    local preGrace = tonumber(gPre.y0zfqqHubLoadGraceSec) or 20
+    local direct = gPre.y0zfqqDirectMenu ~= false and gPre.OxideDirectMenu ~= false
+    local preGrace = tonumber(gPre.y0zfqqHubLoadGraceSec)
+    if preGrace == nil then preGrace = direct and 0 or 20 end
     preGrace = math.clamp(preGrace, 0, 90)
     if preGrace > 0 then
-        print("[y0zfqq] menu tusundan sonra", preGrace, "sn, sonra Libary (BAC-3511)")
+        print("[y0zfqq]", preGrace, "sn sonra Libary yukleniyor...")
         task.wait(preGrace)
     end
     if HUB.dead then loading = false return end
@@ -156,7 +158,8 @@ local function bootFullHub()
     end
     stashLibrary(lib)
 
-    local between = tonumber(gPre.y0zfqqHubSplitGraceSec) or 15
+    local between = tonumber(gPre.y0zfqqHubSplitGraceSec)
+    if between == nil then between = direct and 0 or 15 end
     between = math.clamp(between, 0, 60)
     if between > 0 then
         print("[y0zfqq] Libary OK —", between, "sn sonra aa.lua")
@@ -176,8 +179,8 @@ local function bootFullHub()
     end
 
     local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-    if not hubBuild or hubBuild < 15 then
-        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 15+ yukle.")
+    if not hubBuild or hubBuild < 17 then
+        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 17+ yukle.")
         loading = false
         booted = false
         return
@@ -195,9 +198,12 @@ local function bootFullHub()
     g.OxideEnableBacSpoof = false
     g.y0zfqqEnableHubLayers = false
     g.OxideEnableHubLayers = false
+    g.y0zfqqAllowEggRemotes = false
     g.y0zfqqOpenMenuNow = false
     g.y0zfqqOpenMenuAfterLoad = true
-    g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 20
+    local menuGrace = tonumber(g.y0zfqqMenuGraceAfterLoad)
+    if menuGrace == nil then menuGrace = direct and 0 or 20 end
+    g.y0zfqqMenuGraceAfterLoad = menuGrace
 
     local hubCode = "local Library = (getgenv and getgenv().__y0zfqqLib) or _G.y0zfqqLib or _G.OxideLib\n" .. hubSrc
     local runHub, errH = loadstring(hubCode, "aa.lua@idle")
@@ -217,7 +223,7 @@ local function bootFullHub()
 end
 
 local keyName = menuKeyLabel()
-print("[y0zfqq] idle build", IDLE_BUILD, "— GUI yok. 30sn bekle, menu:", keyName, "veya chat .y0z")
+print("[y0zfqq] loader build", IDLE_BUILD)
 
 local function bindMenuTriggers()
     local menuKey = resolveMenuKey()
@@ -238,12 +244,29 @@ local function bindMenuTriggers()
     end))
 end
 
+local function startDirectMenuLoad()
+    local g = env()
+    local delay = tonumber(g.y0zfqqDirectMenuDelaySec) or 4
+    delay = math.clamp(delay, 0, 45)
+    print("[y0zfqq] menu otomatik yukleniyor (Jane modu) — lib+hub indiriliyor...")
+    task.spawn(function()
+        if delay > 0 then task.wait(delay) end
+        if not HUB.dead and not booted and not loading then
+            bootFullHub()
+        end
+    end)
+end
+
 do
     local g = env()
+    local direct = g.y0zfqqDirectMenu ~= false and g.OxideDirectMenu ~= false
     if g.y0zfqqOpenMenuNow == true then
         bootFullHub()
+    elseif direct then
+        startDirectMenuLoad()
+        bindMenuTriggers()
     else
         bindMenuTriggers()
-        print("[y0zfqq] Sag Ctrl KULLANMA (BAC-3511). Tus:", keyName, "| chat: .y0z")
+        print("[y0zfqq] Insert / chat .y0z ile menu (Sag Ctrl kullanma). Tus:", keyName)
     end
 end
