@@ -51,7 +51,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 23 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 25 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -108,7 +108,7 @@ local function resolveMenuKeyCode()
     if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then return k end
     return Enum.KeyCode.Insert
 end
-hubLog("[y0zfqq] aa build", HUB.build)
+hubLog("[y0zfqq] aa build", HUB.build, "Solara/PC")
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
@@ -253,6 +253,21 @@ end
 
 local function bypassClientDetections()
     return false
+end
+
+local function findChar()
+    return LP and LP.Character
+end
+
+local function findHum()
+    local ch = LP and LP.Character
+    return ch and ch:FindFirstChildOfClass("Humanoid")
+end
+
+local function findHRP()
+    local ch = LP and LP.Character
+    if not ch then return nil end
+    return ch:FindFirstChild("HumanoidRootPart") or ch.PrimaryPart or ch:FindFirstChildWhichIsA("BasePart")
 end
 
 -- ==============================================================================
@@ -463,6 +478,19 @@ end
 -- CLEAN ROAD & FLIGHT PATH NAVIGATION (Anti-Trap & Zero Kick Engine)
 -- ==============================================================================
 local function InitHubFeatures()
+    local function findChar()
+        return LP and LP.Character
+    end
+    local function findHum()
+        local ch = LP and LP.Character
+        return ch and ch:FindFirstChildOfClass("Humanoid")
+    end
+    local function findHRP()
+        local ch = LP and LP.Character
+        if not ch then return nil end
+        return ch:FindFirstChild("HumanoidRootPart") or ch.PrimaryPart or ch:FindFirstChildWhichIsA("BasePart")
+    end
+
     local g0 = oxideEnv()
     local grace = tonumber(g0.y0zfqqMenuGraceAfterLoad) or tonumber(g0.y0zfqqMenuGraceSec) or 0
     grace = math.clamp(grace, 0, 90)
@@ -2387,6 +2415,7 @@ end
 local function ensureEspRenderLoop()
     if espRenderConn then return end
     espRenderConn = track(RunService.Heartbeat:Connect(function()
+        local ok, err = pcall(function()
         if HUB.dead or not esp.enabled then
             for _, rec in pairs(espBillboards) do
                 if rec.gui then rec.gui.Enabled = false end
@@ -2459,6 +2488,7 @@ local function ensureEspRenderLoop()
                 rec.gui.Enabled = false
             end
         end
+        end)
     end))
 end
 

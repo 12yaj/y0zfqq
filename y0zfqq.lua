@@ -1,5 +1,5 @@
 --[[
-  y0zfqq giris — build 23
+  y0zfqq giris — build 25
   loadstring(game:HttpGet("https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?" .. os.time()))()
 ]]
 
@@ -11,7 +11,7 @@ local GITHUB_USER   = g.OxideGitHubUser   or "12yaj"
 local GITHUB_REPO   = g.OxideGitHubRepo   or "y0zfqq"
 local GITHUB_BRANCH = g.OxideGitHubBranch or "main"
 local GITHUB_FOLDER = g.OxideGitHubFolder or ""
-local CACHE_VER     = "23"
+local CACHE_VER     = "25"
 
 local function buildRawBase()
     if type(g.OxideGitHubRaw) == "string" and #g.OxideGitHubRaw > 10 then
@@ -60,17 +60,29 @@ local function bootErr(msg)
 end
 
 local function httpGet(url)
-    local fn = syn and syn.request or http and http.request or request
-    if fn then
-        local res = fn({ Url = url, Method = "GET" })
-        local body = res and (res.Body or res.body)
+    local tried = {}
+    local function tryBody(body)
         if type(body) == "string" and #body > 50 then return body end
-        error("HTTP bos: " .. tostring(res and res.StatusCode or res and res.status))
+        return nil
     end
     if game.HttpGet then
-        return game:HttpGet(url, true)
+        local ok, body = pcall(function() return game:HttpGet(url, true) end)
+        if ok then
+            local got = tryBody(body)
+            if got then return got end
+        end
+        table.insert(tried, "HttpGet")
     end
-    error("HttpGet yok")
+    local req = (http_request or request or (http and http.request) or (syn and syn.request))
+    if req then
+        local ok, res = pcall(req, { Url = url, Method = "GET" })
+        if ok and type(res) == "table" then
+            local got = tryBody(res.Body or res.body)
+            if got then return got end
+        end
+        table.insert(tried, "request")
+    end
+    error("HTTP basarisiz (" .. table.concat(tried, ",") .. ")")
 end
 
 local function fetchScript(fileName)
@@ -149,7 +161,7 @@ end)
 
 applyFlags(pg)
 
-log("[y0zfqq] HTTP boot 23 — orijinal menu, ESP PlayerGui")
+log("[y0zfqq] HTTP boot 25 — F9'da hub25 gormelisin (hub22 = eski GitHub)")
 
 local libSrc, libErr = fetchScript("Libary.lua")
 if not libSrc then
@@ -168,11 +180,15 @@ end
 
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 log("[y0zfqq] aa build", tostring(hubBuild), "| Libary", #libSrc, "byte")
-if not hubBuild or hubBuild < 23 then
+if not hubBuild or hubBuild < 25 then
     bootErr(
-        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 23+.\n"
-        .. "aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua REPLACE."
+        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 25+.\n"
+        .. "Desktop/selams icindeki aa.lua + y0zfqq.lua + github_loader.lua GitHub'a REPLACE et."
     )
+    return
+end
+if not hubSrc:find("local function findHRP", 1, true) then
+    bootErr("aa.lua bozuk/eski: findHRP yok. GitHub REPLACE et (build 25).")
     return
 end
 
@@ -186,7 +202,7 @@ local combined = table.concat({
     hubSrc,
 })
 
-local runHub, errH = loadstring(combined, "y0zfqq@hub22")
+local runHub, errH = loadstring(combined, "y0zfqq@hub25")
 if not runHub then
     bootErr("hub derleme: " .. tostring(errH))
     return
