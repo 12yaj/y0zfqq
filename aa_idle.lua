@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
-local IDLE_BUILD = 18
+local IDLE_BUILD = 20
 
 local function env()
     if typeof(getgenv) == "function" then return getgenv() end
@@ -179,8 +179,8 @@ local function bootFullHub()
     end
 
     local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-    if not hubBuild or hubBuild < 18 then
-        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 18+ yukle.")
+    if not hubBuild or hubBuild < 20 then
+        warn("[y0zfqq] GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). 20+ yukle.")
         loading = false
         booted = false
         return
