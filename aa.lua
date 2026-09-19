@@ -1,6 +1,22 @@
 -- === HUB STRIP POINT - when executed through the hub ScriptLoader, which injects
 --     "local Library = _G.OxideLib" above this line instead. ===
 -- ==============================================================================
+local function oxideEnvEarly()
+    if typeof(getgenv) == "function" then return getgenv() end
+    return _G
+end
+
+local function useMinimalUi()
+    local g = oxideEnvEarly()
+    return g.y0zfqqMinimalUi == true or g.OxideMinimalUi == true
+end
+
+local function hubLog(...)
+    local g = oxideEnvEarly()
+    if g.y0zfqqQuiet == true or g.OxideQuiet == true then return end
+    print(...)
+end
+
 if not Library then
     if typeof(getgenv) == "function" then
         local g = getgenv()
@@ -8,8 +24,8 @@ if not Library then
     end
     Library = Library or _G.y0zfqqLib or _G.OxideLib
 end
-if not Library or type(Library.CreateWindow) ~= "function" then
-    error("[y0zfqq] Library bulunamadi. PC: loadstring(readfile('b.lua'))() veya github_loader.")
+if not useMinimalUi() and (not Library or type(Library.CreateWindow) ~= "function") then
+    error("[y0zfqq] Library bulunamadi. PC: readfile('b.lua') veya github_loader (minimal).")
 end
 
 if not game:IsLoaded() then
@@ -17,10 +33,6 @@ if not game:IsLoaded() then
 end
 
 local PlayersEarly = game:GetService("Players")
-local function oxideEnvEarly()
-    if typeof(getgenv) == "function" then return getgenv() end
-    return _G
-end
 
 -- Join grace sadece acikca istenirse (eski build 6 her PC inject'te 15sn bekletiyordu)
 local function applyJoinGrace()
@@ -44,7 +56,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 18 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 19 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -101,7 +113,7 @@ local function resolveMenuKeyCode()
     if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then return k end
     return Enum.KeyCode.Insert
 end
-print("[y0zfqq] aa build", HUB.build, "- remote egg | UI toggle: Insert (Sag Ctrl kullanma)")
+hubLog("[y0zfqq] aa build", HUB.build, useMinimalUi() and "- minimal UI (Jane)" or "- Libary UI | Insert")
 
 -- ==============================================================================
 -- CONFIG / FLAG PERSISTENCE
@@ -174,7 +186,18 @@ pcall(function()
     end))
 end)
 
+local StarterGui = game:GetService("StarterGui")
 local function Notify(title, content, kind, dur)
+    if useMinimalUi() or not Window or type(Window.Notify) ~= "function" then
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = tostring(title),
+                Text = tostring(content),
+                Duration = dur or 3,
+            })
+        end)
+        return
+    end
     pcall(function()
         Window:Notify({ Title = title, Content = content, Type = kind or "Info", Duration = dur or 2.5 })
     end)
@@ -904,7 +927,7 @@ local function InitHubFeatures()
     local grace = tonumber(g0.y0zfqqMenuGraceAfterLoad) or tonumber(g0.y0zfqqMenuGraceSec) or 0
     grace = math.clamp(grace, 0, 90)
     if grace > 0 then
-        print("[y0zfqq] GUI oncesi", grace, "sn (BAC-2518 — Libary/CreateWindow gecikmesi)...")
+        hubLog("[y0zfqq] GUI oncesi", grace, "sn...")
         task.wait(grace)
     end
     if HUB.dead then return end
@@ -912,18 +935,9 @@ local function InitHubFeatures()
     if shouldStartHubRuntimeLayers() then
         startHubRuntimeLayers()
     else
-        print("[y0zfqq] hub katmanlari kapali (BAC-9513) — spoof/GC/scrub yok")
+        hubLog("[y0zfqq] hub katmanlari kapali — spoof/GC/scrub yok")
     end
-    print("[y0zfqq] egg remotes kapali (BAC-5514) — Auto Steal/ESP acinca acilir")
-
-    if not Window then
-        Window = Library:CreateWindow(windowOpts)
-        Window:SetVisible(false)
-        task.defer(function()
-            if HUB.dead or not Window then return end
-            pcall(function() Window:SetVisible(true) end)
-        end)
-    end
+    hubLog("[y0zfqq] egg remotes kapali — Auto Steal acinca acilir")
 
 local MAIN_ROAD_Z = -364.5
 
@@ -3181,6 +3195,138 @@ local function SetAntiAFK(v)
     end
 end
 
+-- Minimal PlayerGui menu (HTTP / Jane — Libary loadstring yok, BAC-1518 azaltir)
+local function CreateMinimalStealGui()
+    local parent = windowOpts.Parent or LP:WaitForChild("PlayerGui")
+    local old = parent:FindFirstChild("y0zfqqMini")
+    if old then old:Destroy() end
+
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "y0zfqqMini"
+    sg.ResetOnSpawn = false
+    sg.DisplayOrder = windowOpts.DisplayOrder or 100
+    sg.Enabled = true
+    sg.Parent = parent
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 260, 0, 200)
+    frame.Position = UDim2.new(0, 12, 0, 12)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+    frame.BorderSizePixel = 0
+    frame.Parent = sg
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -16, 0, 28)
+    title.Position = UDim2.new(0, 8, 0, 6)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 15
+    title.TextColor3 = Color3.fromRGB(240, 240, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Text = "y0zfqq · build " .. tostring(HUB.build)
+    title.Parent = frame
+
+    local function makeToggle(y, label, defaultOn, onChange)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -16, 0, 32)
+        btn.Position = UDim2.new(0, 8, 0, y)
+        btn.BackgroundColor3 = defaultOn and Color3.fromRGB(45, 120, 75) or Color3.fromRGB(45, 45, 55)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Font = Enum.Font.GothamSemibold
+        btn.TextSize = 14
+        btn.Text = label .. (defaultOn and " [ON]" or " [OFF]")
+        btn.Parent = frame
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        local on = defaultOn
+        btn.MouseButton1Click:Connect(function()
+            on = not on
+            btn.BackgroundColor3 = on and Color3.fromRGB(45, 120, 75) or Color3.fromRGB(45, 45, 55)
+            btn.Text = label .. (on and " [ON]" or " [OFF]")
+            onChange(on)
+        end)
+        if defaultOn then onChange(true) end
+    end
+
+    makeToggle(38, "Kick-Safe", kickSafeMode, function(v)
+        kickSafeMode = v
+        if v and glideSpeed > KICK_SAFE_MAX_SPEED then glideSpeed = KICK_SAFE_MAX_SPEED end
+        if v and stealDelay < 4.5 then stealDelay = 5.0 end
+        Notify("Kick-Safe", v and "On" or "Off", v and "Success" or "Warning")
+    end)
+
+    makeToggle(76, "Auto Steal", false, safeCallback(function(v)
+        autoStealEnabled = v
+        setEggRemotePipelineEnabled(v)
+        if v then
+            InstallCarryPromptBoost()
+            ensureStealWorker()
+            EnsureSavedReturnPosition()
+            local waitSec = kickSafeMode and 6 or 3
+            stealGraceUntil = os.clock() + waitSec
+            Notify("Auto Steal", ("~%ds sonra baslar"):format(waitSec), "Info")
+        else
+            stealGraceUntil = 0
+        end
+    end))
+
+    local once = Instance.new("TextButton")
+    once.Size = UDim2.new(1, -16, 0, 32)
+    once.Position = UDim2.new(0, 8, 0, 114)
+    once.BackgroundColor3 = Color3.fromRGB(70, 90, 160)
+    once.TextColor3 = Color3.new(1, 1, 1)
+    once.Font = Enum.Font.GothamSemibold
+    once.Text = "Steal best egg once"
+    once.Parent = frame
+    Instance.new("UICorner", once).CornerRadius = UDim.new(0, 6)
+    once.MouseButton1Click:Connect(safeCallback(function()
+        local ok = StealBestEggOnce()
+        Notify("Steal", ok and "Basladi" or "Yumurta yok", ok and "Success" or "Info")
+    end))
+
+    local unload = Instance.new("TextButton")
+    unload.Size = UDim2.new(1, -16, 0, 28)
+    unload.Position = UDim2.new(0, 8, 0, 152)
+    unload.BackgroundColor3 = Color3.fromRGB(120, 45, 45)
+    unload.Text = "Unload"
+    unload.TextColor3 = Color3.new(1, 1, 1)
+    unload.Font = Enum.Font.Gotham
+    unload.Parent = frame
+    Instance.new("UICorner", unload).CornerRadius = UDim.new(0, 6)
+    unload.MouseButton1Click:Connect(function()
+        pcall(function() HUB.Unload() end)
+    end)
+
+    local hint = Instance.new("TextLabel")
+    hint.Size = UDim2.new(1, -16, 0, 18)
+    hint.Position = UDim2.new(0, 8, 0, 178)
+    hint.BackgroundTransparency = 1
+    hint.Text = "Insert = gizle/goster"
+    hint.TextColor3 = Color3.fromRGB(160, 160, 170)
+    hint.TextSize = 12
+    hint.Font = Enum.Font.Gotham
+    hint.Parent = frame
+
+    HUB._miniGui = sg
+    track(UserInputService.InputBegan:Connect(function(input, gp)
+        if gp or HUB.dead then return end
+        if input.KeyCode == resolveMenuKeyCode() then
+            sg.Enabled = not sg.Enabled
+        end
+    end))
+    return {
+        _sg = sg,
+        SetVisible = function(_, vis) sg.Enabled = vis == true end,
+        Toggle = function() sg.Enabled = not sg.Enabled end,
+        Destroy = function() sg:Destroy() end,
+        Notify = function(_, p)
+            if type(p) == "table" then
+                Notify(p.Title or "y0zfqq", p.Content or "", p.Type, p.Duration)
+            end
+        end,
+    }
+end
+
 -- UI (Luau 200 local / fonksiyon — InitHubFeatures icinde)
 local function CreateHubUI()
 local EggsTab     = Window:AddTab({ Name = "Eggs", Subtitle = "Steal, hatch & plant", Icon = "crown" })
@@ -3858,7 +4004,23 @@ ConfigSub:AddButton({
 end
 
 end -- CreateHubUI
-CreateHubUI()
+
+if useMinimalUi() then
+    if not Window then
+        Window = CreateMinimalStealGui()
+        hubLog("[y0zfqq] minimal menu acildi (Libary yok)")
+    end
+else
+    if not Window then
+        Window = Library:CreateWindow(windowOpts)
+        Window:SetVisible(false)
+        task.defer(function()
+            if HUB.dead or not Window then return end
+            pcall(function() Window:SetVisible(true) end)
+        end)
+    end
+    CreateHubUI()
+end
 
 local function ForceIdleDefaults()
     autoStealEnabled = false
@@ -3907,7 +4069,7 @@ HUB.booted = false
 local function bootMenu()
     if HUB.booted or HUB.dead then return end
     HUB.booted = true
-    print("[y0zfqq] menu aciliyor")
+    hubLog("[y0zfqq] menu aciliyor")
     InitHubFeatures()
 end
 
@@ -3925,7 +4087,7 @@ do
                 bootMenu()
             end
         end))
-        print("[y0zfqq] inject idle. Menu: Insert veya .y0z (Sag Ctrl = BAC-3511)")
+        hubLog("[y0zfqq] Insert veya .y0z ile menu")
     end
 end
 
@@ -3954,7 +4116,10 @@ HUB.Unload = function()
         hum.JumpPower = 50
     end
 
-    pcall(function() Window:Destroy() end)
+    pcall(function()
+        if HUB._miniGui then HUB._miniGui:Destroy() end
+        if Window and Window.Destroy then Window:Destroy() end
+    end)
     pcall(function()
         local g = getgenv()
         g.__y0zfqqHub = nil
@@ -3966,8 +4131,8 @@ end
 task.defer(function()
     local g = oxideEnv()
     if g.y0zfqqOpenMenuAfterLoad == true or g.y0zfqqOpenMenuNow == true or HUB.booted then
-        print("[y0zfqq] build", HUB.build, "hazir — menu aciliyor")
+        hubLog("[y0zfqq] build", HUB.build, "hazir")
     else
-        print("[y0zfqq] build", HUB.build, "hazir — Insert / .y0z")
+        hubLog("[y0zfqq] build", HUB.build, "— Insert / .y0z")
     end
 end)

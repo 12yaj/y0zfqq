@@ -1,30 +1,19 @@
 --[[
-  y0zfqq — GitHub Raw (HTTP) loader — SON SECENEK
-  ================================================
+  y0zfqq — GitHub Raw loader (build 19+)
+  Tek hub loadstring: aa.lua (minimal UI). aa_idle + Libary HTTP yolu KAPALI (BAC-1518).
 
-  1) Libary.lua + aa.lua dosyalarini GitHub repo'na yukle (ornek: selams/ klasoru)
-  2) Asagidaki USER, REPO, BRANCH degerlerini duzenle VEYA getgenv ile ver:
-
-     getgenv().OxideGitHubRaw = "https://raw.githubusercontent.com/KULLANICI/REPO/main/selams/"
-
-  3) Executor'da SADECE su satiri calistir (tek dosya yeter):
-
-     loadstring(game:HttpGet("https://raw.githubusercontent.com/KULLANICI/REPO/main/selams/github_loader.lua"))()
-
-  Ya da github_loader.lua'nin TAMAMINI yapistir — HttpGet ile kendini cekmesine gerek yok.
-
-  NOT: Private repo raw linkleri token ister; public repo kullan.
+  getgenv().y0zfqqUseIdleLoader = true  → eski idle + Libary yolu (riskli)
+  getgenv().y0zfqqMinimalUi = false     → tam Libary (readfile b.lua kullan)
 ]]
 
 if typeof(getgenv) ~= "function" then getgenv = function() return _G end end
 local g = getgenv()
 local Players = game:GetService("Players")
 
--- Repo: https://github.com/12yaj/y0zfqq  (dosyalar repo KOKUNDE olmali)
 local GITHUB_USER   = g.OxideGitHubUser   or "12yaj"
 local GITHUB_REPO   = g.OxideGitHubRepo   or "y0zfqq"
 local GITHUB_BRANCH = g.OxideGitHubBranch or "main"
-local GITHUB_FOLDER = g.OxideGitHubFolder or "" -- "" = kok; veya "selams"
+local GITHUB_FOLDER = g.OxideGitHubFolder or ""
 
 local function buildRawBase()
     if type(g.OxideGitHubRaw) == "string" and #g.OxideGitHubRaw > 10 then
@@ -44,7 +33,7 @@ end
 local RAW_BASE = buildRawBase()
 
 local function bootErr(msg)
-    warn("[y0zfqq HTTP] " .. tostring(msg))
+    warn("[y0zfqq] " .. tostring(msg))
     pcall(function()
         local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
         local pg = lp:WaitForChild("PlayerGui", 12)
@@ -61,7 +50,7 @@ local function bootErr(msg)
         t.TextWrapped = true
         t.TextSize = 14
         t.Font = Enum.Font.GothamBold
-        t.Text = "[y0zfqq HTTP]\n" .. tostring(msg)
+        t.Text = "[y0zfqq]\n" .. tostring(msg)
         t.Parent = sg
         Instance.new("UICorner", t).CornerRadius = UDim.new(0, 8)
     end)
@@ -73,65 +62,133 @@ local function httpGet(url)
         local res = fn({ Url = url, Method = "GET" })
         local body = res and (res.Body or res.body)
         if type(body) == "string" and #body > 50 then return body end
-        error("HTTP bos veya hata: " .. tostring(res and res.StatusCode or res and res.status))
+        error("HTTP bos: " .. tostring(res and res.StatusCode or res and res.status))
     end
     if game.HttpGet then
         return game:HttpGet(url, true)
     end
-    error("HttpGet / request yok — executor ag desteklemiyor")
+    error("HttpGet yok")
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=18&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=19&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
     end
     if type(body) ~= "string" or #body < 200 then
-        return nil, ("Cok kisa / 404 olabilir: %s"):format(url)
+        return nil, ("Cok kisa / 404: %s"):format(url)
     end
     if body:sub(1, 1) == "<" or body:lower():find("<!doctype", 1, true) then
-        return nil, ("HTML dondu (yanlis URL?): %s"):format(url)
+        return nil, ("HTML (yanlis URL?): %s"):format(url)
     end
     return body, url
+end
+
+local function applySecureHubFlags()
+    g.y0zfqqAllowClientEggApi = false
+    g.OxideAllowClientEggApi = false
+    g.y0zfqqRemoteOnly = true
+    g.OxideRemoteOnly = true
+    g.y0zfqqDisableEvidenceScrub = true
+    g.OxideDisableEvidenceScrub = true
+    g.OxideSkipACNeutralizer = true
+    g.y0zfqqDisableBacSpoof = true
+    g.OxideDisableBacSpoof = true
+    g.y0zfqqEnableBacSpoof = false
+    g.OxideEnableBacSpoof = false
+    g.y0zfqqEnableHubLayers = false
+    g.OxideEnableHubLayers = false
+    g.y0zfqqAllowEggRemotes = false
+    g.y0zfqqOpenMenuAfterLoad = true
+    g.y0zfqqMenuGraceAfterLoad = tonumber(g.y0zfqqMenuGraceAfterLoad) or 0
+end
+
+local function runHubAa(hubSrc)
+    applySecureHubFlags()
+    local prefix = "-- y0zfqq HTTP minimal\n"
+    local runHub, errH = loadstring(prefix .. hubSrc, "aa.lua@HTTP")
+    if not runHub then
+        bootErr("aa derleme: " .. tostring(errH))
+        return false
+    end
+    local okH, runErr = pcall(runHub)
+    if not okH then
+        bootErr("aa calismadi:\n" .. tostring(runErr))
+        return false
+    end
+    return true
+end
+
+local function bootMinimalHttp(hubSrc)
+    g.y0zfqqRawBase = RAW_BASE
+
+    local dwell = tonumber(g.y0zfqqJoinDwellSec)
+    if dwell == nil then dwell = 22 end
+    dwell = math.clamp(dwell, 0, 120)
+    if dwell > 0 then
+        if g.y0zfqqQuiet ~= true then
+            print("[y0zfqq] sunucu nefesi", dwell, "sn (coklu loadstring onleme)...")
+        end
+        local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
+        if not lp.Character then lp.CharacterAdded:Wait() end
+        task.wait(dwell)
+    end
+
+    return runHubAa(hubSrc)
+end
+
+local function bootIdleLegacy(hubSrc)
+    local idleSrc, idleErr = fetchScript("aa_idle.lua")
+    if not idleSrc then
+        bootErr("aa_idle: " .. tostring(idleErr))
+        return false
+    end
+    local runIdle, compileIdle = loadstring(idleSrc, "aa_idle.lua@HTTP")
+    if not runIdle then
+        bootErr("aa_idle derleme: " .. tostring(compileIdle))
+        return false
+    end
+    local okI, runErr = pcall(runIdle)
+    if not okI then
+        bootErr("aa_idle: " .. tostring(runErr))
+        return false
+    end
+    return true
 end
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local pg = lp:WaitForChild("PlayerGui", 20)
-if not pg then bootErr("Oyuna gir — PlayerGui yok."); return end
+if not pg then bootErr("PlayerGui yok."); return end
 
 pcall(function()
     local p = _G.y0zfqqStealAnEgg or _G.OxideStealAnEgg
     if p and type(p.Unload) == "function" then p.Unload() end
 end)
 
-print("[y0zfqq HTTP] Raw base: " .. RAW_BASE)
-
 g.y0zfqqRawBase = RAW_BASE
 
 local hubSrc, hubErr = fetchScript("aa.lua")
 if not hubSrc then
-    bootErr("aa.lua indirilemedi.\n" .. tostring(hubErr))
+    bootErr("aa.lua: " .. tostring(hubErr))
     return
 end
 local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
-print("[y0zfqq HTTP] aa.lua GitHub build:", tostring(hubBuild))
-if not hubBuild or hubBuild < 18 then
+if g.y0zfqqQuiet ~= true then
+    print("[y0zfqq] aa build", tostring(hubBuild), "| minimal HTTP yolu")
+end
+if not hubBuild or hubBuild < 19 then
     bootErr(
-        "GitHub'daki aa.lua ESKI (build " .. tostring(hubBuild) .. ").\n"
-        .. "Beklenen: build 18+\n\n"
-        .. "https://github.com/12yaj/y0zfqq  uzerinden aa_idle.lua, aa.lua, Libary.lua, github_loader.lua, y0zfqq.lua, y0zfqq_bootstrap.lua REPLACE et.\n"
-        .. "Sonra cache kirarak tekrar dene:\n"
-        .. "loadstring(game:HttpGet('https://raw.githubusercontent.com/12yaj/y0zfqq/main/y0zfqq.lua?'..os.time()))()"
+        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 19+.\n"
+        .. "aa.lua, github_loader.lua, y0zfqq_bootstrap.lua, y0zfqq.lua REPLACE."
     )
     return
 end
 
-local idleSrc, idleErr = fetchScript("aa_idle.lua")
-if not idleSrc then
-    bootErr("aa_idle.lua indirilemedi.\n" .. tostring(idleErr))
-    return
+if g.y0zfqqUseIdleLoader ~= true then
+    g.y0zfqqHttpBoot = true
+    g.y0zfqqMinimalUi = (g.y0zfqqMinimalUi ~= false)
 end
 
 local bootSrc = fetchScript("y0zfqq_bootstrap.lua")
@@ -141,33 +198,20 @@ if bootFn then
     if okBoot and type(applyEnv) == "function" then
         applyEnv(g, pg)
     end
-else
-    g.OxideForcePC = (g.OxideForcePC ~= false)
-    g.y0zfqqDeferLoad = (g.y0zfqqDeferLoad ~= false)
-    g.y0zfqqJoinGraceSec = g.y0zfqqJoinGraceSec or 15
-    g.OxideUsePlayerGui = true
-    g.OxideKickSafe = (g.OxideKickSafe ~= false)
-    g.OxidePhoneParity = (g.OxidePhoneParity ~= false)
-    g.OxideSkipACNeutralizer = (g.OxideSkipACNeutralizer ~= false)
-    g.OxideEnableBacSpoof = (g.OxideEnableBacSpoof == true)
-    g.y0zfqqEnableBacSpoof = (g.y0zfqqEnableBacSpoof == true)
-    g.OxideDisableTags = (g.OxideDisableTags ~= false)
-    g.OxideDefaultStealMethod = g.OxideDefaultStealMethod or "Tween Glide"
-    g.OxideCreateWindowOpts = {
-        Mobile = false, Parent = pg, LoadingAnimation = true,
-        LoadingDuration = 0.9, DisplayOrder = 100, SkipTagSystem = true,
-    }
 end
 if not g.OxideCreateWindowOpts then
     g.OxideCreateWindowOpts = {
-        Mobile = false, Parent = pg, LoadingAnimation = true,
-        LoadingDuration = 0.9, DisplayOrder = 100, SkipTagSystem = true,
+        Mobile = false, Parent = pg, DisplayOrder = 100,
+        SkipTagSystem = true, AutoLoad = false, ConfigName = "y0zfqq_steal",
     }
 end
 
-local runIdle, compileIdle = loadstring(idleSrc, "aa_idle.lua@HTTP")
-if not runIdle then bootErr("aa_idle derleme: " .. tostring(compileIdle)); return end
-local okI, runErr = pcall(runIdle)
-if not okI then bootErr("aa_idle calismadi:\n" .. tostring(runErr)); return end
-
-print("[y0zfqq HTTP] OK — menu otomatik yuklenecek (Jane modu). F9: lib+hub indirme loglari")
+if g.y0zfqqUseIdleLoader == true then
+    g.y0zfqqMinimalUi = false
+    if g.y0zfqqQuiet ~= true then
+        warn("[y0zfqq] ESKI idle+Libary yolu — BAC-1518 riski")
+    end
+    bootIdleLegacy(hubSrc)
+else
+    bootMinimalHttp(hubSrc)
+end
