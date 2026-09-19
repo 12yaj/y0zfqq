@@ -56,7 +56,7 @@ do
     end
     if prev and type(prev.Unload) == "function" then pcall(prev.Unload) end
 end
-local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 20 }
+local HUB = { conns = {}, drawings = {}, highlights = {}, dead = false, build = 21 }
 local function track(conn) table.insert(HUB.conns, conn); return conn end
 local function trackDrawing(d) if d then table.insert(HUB.drawings, d) end; return d end
 
@@ -191,14 +191,10 @@ end)
 
 local StarterGui = game:GetService("StarterGui")
 local function Notify(title, content, kind, dur)
-    if useMinimalUi() or not Window or type(Window.Notify) ~= "function" then
-        pcall(function()
-            StarterGui:SetCore("SendNotification", {
-                Title = tostring(title),
-                Text = tostring(content),
-                Duration = dur or 3,
-            })
-        end)
+    if useMinimalUi() then
+        return
+    end
+    if not Window or type(Window.Notify) ~= "function" then
         return
     end
     pcall(function()
@@ -3204,8 +3200,9 @@ local function CreateMinimalStealGui()
     local old = parent:FindFirstChild("y0zfqqMini")
     if old then old:Destroy() end
 
+    local guiName = windowOpts.GuiName or "PlayerMenuUI"
     local sg = Instance.new("ScreenGui")
-    sg.Name = "y0zfqqMini"
+    sg.Name = guiName
     sg.ResetOnSpawn = false
     sg.DisplayOrder = windowOpts.DisplayOrder or 100
     sg.Enabled = true
@@ -3227,7 +3224,7 @@ local function CreateMinimalStealGui()
     title.TextSize = 15
     title.TextColor3 = Color3.fromRGB(240, 240, 255)
     title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Text = "y0zfqq · build " .. tostring(HUB.build)
+    title.Text = "Steal · " .. tostring(HUB.build)
     title.Parent = frame
 
     local function makeToggle(y, label, defaultOn, onChange)
@@ -3248,7 +3245,6 @@ local function CreateMinimalStealGui()
             btn.Text = label .. (on and " [ON]" or " [OFF]")
             onChange(on)
         end)
-        if defaultOn then onChange(true) end
     end
 
     makeToggle(38, "Kick-Safe", kickSafeMode, function(v)

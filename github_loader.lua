@@ -71,7 +71,7 @@ local function httpGet(url)
 end
 
 local function fetchScript(fileName)
-    local url = RAW_BASE .. fileName .. "?v=20&t=" .. tostring(os.time())
+    local url = RAW_BASE .. fileName .. "?v=21&t=" .. tostring(os.time())
     local ok, body = pcall(httpGet, url)
     if not ok then
         return nil, ("Indirilemedi: %s\n%s"):format(url, tostring(body))
@@ -83,6 +83,70 @@ local function fetchScript(fileName)
         return nil, ("HTML (yanlis URL?): %s"):format(url)
     end
     return body, url
+end
+
+local HTTP_LITE_STUB = [[
+-- HTTP: AC/hook kodu bytecode'dan cikarildi (BAC-105110)
+local function oxideEnv()
+    if typeof(getgenv) == "function" then return getgenv() end
+    return _G
+end
+local function shouldSkipHeavyAC() return true end
+local function shouldUseBacSpoof() return false end
+local function allowClientEggCalls()
+    local g = oxideEnv()
+    return g.y0zfqqAllowClientEggApi == true or g.OxideAllowClientEggApi == true
+end
+local function useRemoteOnlyEggPipeline()
+    local g = oxideEnv()
+    if g.y0zfqqRemoteOnly == false or g.OxideRemoteOnly == false then return false end
+    return true
+end
+local function shouldRequireGameDataModules()
+    if useRemoteOnlyEggPipeline() and not allowClientEggCalls() then return false end
+    local g = oxideEnv()
+    if g.y0zfqqRequireGameData == true or g.OxideRequireGameData == true then return true end
+    return allowClientEggCalls()
+end
+local function shouldRunEvidenceScrub() return false end
+local function shouldStartHubRuntimeLayers() return false end
+local function startHubRuntimeLayers() end
+local bacHookInstalled = false
+local HookFn = nil
+]]
+
+local function cutBetweenMarkers(src, startNeedle, endNeedle, insert)
+    local a = src:find(startNeedle, 1, true)
+    local b = src:find(endNeedle, 1, true)
+    if not a or not b or b <= a then return src, false end
+    local pre = src:sub(1, a - 1)
+    local sep = pre:find("\n%-%- =+=%-%-\n", 1, true)
+    if sep then a = sep + 1 end
+    local sep2 = src:sub(1, b - 1):find("\n%-%- =+=%-%-\n", 1, true)
+    if sep2 and sep2 < b then b = sep2 + 1 end
+    return src:sub(1, a - 1) .. (insert or "") .. src:sub(b), true
+end
+
+local function stripHttpHubSource(src)
+    local out = src
+    local ok1
+    out, ok1 = cutBetweenMarkers(
+        out,
+        "CLIENT AC NEUTRALIZER & UGI",
+        "CHARACTER & MOVEMENT HELPERS",
+        HTTP_LITE_STUB .. "\n\n-- ==============================================================================\n-- CHARACTER & MOVEMENT HELPERS\n-- ==============================================================================\n"
+    )
+    local ok2
+    out, ok2 = cutBetweenMarkers(
+        out,
+        "BAC TELEMETRY PACKET SPOOFER",
+        "GAME NETWORKING & MODULE INTEGRATION",
+        "\n-- ==============================================================================\n-- GAME NETWORKING & MODULE INTEGRATION\n-- ==============================================================================\n"
+    )
+    if g.y0zfqqQuiet ~= true and (ok1 or ok2) then
+        print("[y0zfqq] HTTP lite strip OK (hook/GC imzasi yok)")
+    end
+    return out
 end
 
 local function applySecureHubFlags()
@@ -106,6 +170,9 @@ end
 
 local function runHubAa(hubSrc)
     applySecureHubFlags()
+    if g.y0zfqqMinimalUi ~= false then
+        hubSrc = stripHttpHubSource(hubSrc)
+    end
     local prefix = "-- y0zfqq HTTP minimal\n"
     local runHub, errH = loadstring(prefix .. hubSrc, "aa.lua@HTTP")
     if not runHub then
@@ -178,9 +245,9 @@ local hubBuild = tonumber(hubSrc:match("build%s*=%s*(%d+)"))
 if g.y0zfqqQuiet ~= true then
     print("[y0zfqq] aa build", tostring(hubBuild), "| minimal HTTP yolu")
 end
-if not hubBuild or hubBuild < 20 then
+if not hubBuild or hubBuild < 21 then
     bootErr(
-        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 20+.\n"
+        "GitHub aa.lua eski (build " .. tostring(hubBuild) .. "). Beklenen 21+.\n"
         .. "aa.lua, github_loader.lua, y0zfqq_bootstrap.lua, y0zfqq.lua REPLACE."
     )
     return
